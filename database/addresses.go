@@ -3,26 +3,28 @@ package database
 import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"math"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Addresses struct {
-	GUID        uuid.UUID      `gorm:"primaryKey" json:"guid"`
-	UserUid     string         `json:"user_uid"`
-	Address     common.Address `json:"address" gorm:"serializer:bytes"`
-	AddressType uint8          `json:"address_type"` //0:用户地址；1:热钱包地址(归集地址)；2:冷钱包地址
-	PrivateKey  string         `json:"private_key"`
-	PublicKey   string         `json:"public_key"`
-	Balance     string         `json:"balance"`
-	Timestamp   uint64
+	GUID         uuid.UUID      `gorm:"primaryKey" json:"guid"`
+	UserUid      string         `json:"user_uid"`
+	Address      common.Address `json:"address" gorm:"serializer:bytes"`
+	ToKenAddress common.Address `json:"token_address" gorm:"serializer:bytes"`
+	AddressType  uint8          `json:"address_type"` //0:用户地址；1:热钱包地址(归集地址)；2:冷钱包地址
+	PrivateKey   string         `json:"private_key"`
+	PublicKey    string         `json:"public_key"`
+	Balance      string         `json:"balance"`
+	Timestamp    uint64
 }
 
 type AddressesView interface {
-	Addresses(common.Hash) (*Addresses, error)
-	AddressesWithFilter(Addresses) (*Addresses, error)
-	AddressesWithScope(func(db *gorm.DB) *gorm.DB) (*Addresses, error)
-	LatestAddresses() (*Addresses, error)
+	QueryAddressesByToAddres(*common.Address) (*Addresses, error)
+	QueryHotWalletInfo() (*Addresses, error)
+	QueryColdWalletInfo() (*Addresses, error)
+	UnCollectionList(decimal uint64) ([]Addresses, error)
 }
 
 type AddressesDB interface {
@@ -35,6 +37,12 @@ type addressesDB struct {
 	gorm *gorm.DB
 }
 
+func (db *addressesDB) QueryAddressesByToAddres(address *common.Address) (*Addresses, error) {
+	var addressEntry Addresses
+	db.gorm.Table("addresses").Where("address", address).Take(&addressEntry)
+	return &addressEntry, nil
+}
+
 func NewAddressesDB(db *gorm.DB) AddressesDB {
 	return &addressesDB{gorm: db}
 }
@@ -44,22 +52,23 @@ func (db *addressesDB) StoreAddressess(addressList []Addresses, addressLength ui
 	return result.Error
 }
 
-func (db *addressesDB) Addresses(hash common.Hash) (*Addresses, error) {
-	//TODO implement me
-	panic("implement me")
+func (db *addressesDB) QueryHotWalletInfo() (*Addresses, error) {
+	var addressEntry Addresses
+	db.gorm.Table("addresses").Where("address_type", 1).Take(&addressEntry)
+	return &addressEntry, nil
 }
 
-func (db *addressesDB) AddressesWithFilter(addresses Addresses) (*Addresses, error) {
-	//TODO implement me
-	panic("implement me")
+func (db *addressesDB) QueryColdWalletInfo() (*Addresses, error) {
+	var addressEntry Addresses
+	db.gorm.Table("addresses").Where("address_type", 2).Take(&addressEntry)
+	return &addressEntry, nil
 }
 
-func (db *addressesDB) AddressesWithScope(f func(db *gorm.DB) *gorm.DB) (*Addresses, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (db *addressesDB) LatestAddresses() (*Addresses, error) {
-	//TODO implement me
-	panic("implement me")
+func (db *addressesDB) UnCollectionList(decimal uint64) ([]Addresses, error) {
+	var addressList []Addresses
+	err := db.gorm.Table("addresses").Where("balance >=?", math.Pow(10, float64(decimal))).Find(&addressList).Error
+	if err != nil {
+		return nil, err
+	}
+	return addressList, nil
 }

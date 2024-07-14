@@ -2,12 +2,13 @@ package database
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	common2 "github.com/the-web3/eth-wallet/database/utils"
 )
 
@@ -19,7 +20,7 @@ type Blocks struct {
 	RLPHeader  *common2.RLPHeader `gorm:"serializer:rlp;column:rlp_bytes"`
 }
 
-func BlocksFromHeader(header *types.Header) Blocks {
+func BlockHeaderFromHeader(header *types.Header) Blocks {
 	return Blocks{
 		Hash:       header.Hash(),
 		ParentHash: header.ParentHash,
@@ -30,16 +31,13 @@ func BlocksFromHeader(header *types.Header) Blocks {
 }
 
 type BlocksView interface {
-	Blocks(common.Hash) (*Blocks, error)
-	BlocksWithFilter(Blocks) (*Blocks, error)
-	BlocksWithScope(func(db *gorm.DB) *gorm.DB) (*Blocks, error)
 	LatestBlocks() (*Blocks, error)
 }
 
 type BlocksDB interface {
 	BlocksView
 
-	StoreBlockss([]Blocks) error
+	StoreBlockss([]Blocks, uint64) error
 }
 
 type blocksDB struct {
@@ -50,29 +48,9 @@ func NewBlocksDB(db *gorm.DB) BlocksDB {
 	return &blocksDB{gorm: db}
 }
 
-func (db *blocksDB) StoreBlockss(headers []Blocks) error {
+func (db *blocksDB) StoreBlockss(headers []Blocks, blockLength uint64) error {
 	result := db.gorm.CreateInBatches(&headers, common2.BatchInsertSize)
 	return result.Error
-}
-
-func (db *blocksDB) Blocks(hash common.Hash) (*Blocks, error) {
-	return db.BlocksWithFilter(Blocks{Hash: hash})
-}
-
-func (db *blocksDB) BlocksWithFilter(filter Blocks) (*Blocks, error) {
-	return db.BlocksWithScope(func(gorm *gorm.DB) *gorm.DB { return gorm.Where(&filter) })
-}
-
-func (db *blocksDB) BlocksWithScope(scope func(*gorm.DB) *gorm.DB) (*Blocks, error) {
-	var l1Header Blocks
-	result := db.gorm.Scopes(scope).Take(&l1Header)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, result.Error
-	}
-	return &l1Header, nil
 }
 
 func (db *blocksDB) LatestBlocks() (*Blocks, error) {
@@ -80,6 +58,7 @@ func (db *blocksDB) LatestBlocks() (*Blocks, error) {
 	result := db.gorm.Order("number DESC").Take(&l1Header)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			log.Error("record not found for query latest block")
 			return nil, nil
 		}
 

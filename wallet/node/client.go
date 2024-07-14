@@ -27,17 +27,31 @@ const (
 	defaultRequestTimeout = 10 * time.Second
 )
 
+type RpcBlock struct {
+	Hash         common.Hash `json:"hash"`
+	Transactions []string    `json:"transactions"`
+	BaseFee      string      `json:"baseFeePerGas"`
+}
+
 type EthClient interface {
 	BlockHeaderByNumber(*big.Int) (*types.Header, error)
+
+	BlockByNumber(*big.Int) (*RpcBlock, error)
+
 	LatestSafeBlockHeader() (*types.Header, error)
 	LatestFinalizedBlockHeader() (*types.Header, error)
 	BlockHeaderByHash(common.Hash) (*types.Header, error)
 	BlockHeadersByRange(*big.Int, *big.Int, uint) ([]types.Header, error)
 
 	TxByHash(common.Hash) (*types.Transaction, error)
+	TxReceiptByHash(common.Hash) (*types.Receipt, error)
 
 	StorageHash(common.Address, *big.Int) (common.Hash, error)
 	FilterLogs(filterQuery ethereum.FilterQuery, chainId uint) (Logs, error)
+
+	TxCountByAddress(common.Address) (*big.Int, error)
+
+	SendRawTransaction(rawTx string) (*common.Hash, error)
 
 	Close()
 }
@@ -118,6 +132,51 @@ func (c *clnt) LatestFinalizedBlockHeader() (*types.Header, error) {
 	}
 
 	return header, nil
+}
+
+func (c *clnt) BlockByNumber(number *big.Int) (*RpcBlock, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var block *RpcBlock
+	err := c.rpc.CallContext(ctxwt, &block, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	if err != nil {
+		log.Error("Call eth_getBlockByNumber method fail", "err", err)
+		return nil, err
+	} else if block == nil {
+		log.Warn("header not found")
+		return nil, ethereum.NotFound
+	}
+	return block, nil
+}
+
+func (c *clnt) TxCountByAddress(address common.Address) (*big.Int, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var nonce *big.Int
+	err := c.rpc.CallContext(ctxwt, &nonce, "eth_getTransactionCount", address, false)
+	if err != nil {
+		log.Error("Call eth_getTransactionCount method fail", "err", err)
+		return nil, err
+	} else if nonce == nil {
+		log.Warn("header not found")
+		return nil, ethereum.NotFound
+	}
+	return nonce, err
+}
+
+func (c *clnt) SendRawTransaction(rawTx string) (*common.Hash, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var hash *common.Hash
+	err := c.rpc.CallContext(ctxwt, &hash, "eth_sendRawTransaction", rawTx, false)
+	if err != nil {
+		log.Error("Call eth_getTransactionCount method fail", "err", err)
+		return nil, err
+	} else if hash == nil {
+		log.Warn("header not found")
+		return nil, ethereum.NotFound
+	}
+	return hash, err
 }
 
 func (c *clnt) BlockHeaderByNumber(number *big.Int) (*types.Header, error) {
@@ -219,6 +278,21 @@ func (c *clnt) TxByHash(hash common.Hash) (*types.Transaction, error) {
 	}
 
 	return tx, nil
+}
+
+func (c *clnt) TxReceiptByHash(hash common.Hash) (*types.Receipt, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+
+	var txReceipt *types.Receipt
+	err := c.rpc.CallContext(ctxwt, &txReceipt, "eth_getTransactionReceipt", hash)
+	if err != nil {
+		return nil, err
+	} else if txReceipt == nil {
+		return nil, ethereum.NotFound
+	}
+
+	return txReceipt, nil
 }
 
 func (c *clnt) StorageHash(address common.Address, blockNumber *big.Int) (common.Hash, error) {

@@ -18,8 +18,12 @@ import (
 type DB struct {
 	gorm *gorm.DB
 
-	Blocks    BlocksDB
-	Addresses AddressesDB
+	Blocks       BlocksDB
+	Addresses    AddressesDB
+	Deposit      DepositDB
+	Withdraw     WithdrawDB
+	Transactions TransactionsDB
+	Token        TokenDB
 }
 
 func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
@@ -55,8 +59,12 @@ func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
 	db := &DB{
 		gorm: gorm,
 
-		Blocks:    NewBlocksDB(gorm),
-		Addresses: NewAddressesDB(gorm),
+		Blocks:       NewBlocksDB(gorm),
+		Addresses:    NewAddressesDB(gorm),
+		Deposit:      NewDepositDB(gorm),
+		Withdraw:     NewWithdrawDB(gorm),
+		Transactions: NewTransactionsDB(gorm),
+		Token:        NewTokenDB(gorm),
 	}
 	return db, nil
 }
@@ -64,9 +72,13 @@ func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
 func (db *DB) Transaction(fn func(db *DB) error) error {
 	return db.gorm.Transaction(func(tx *gorm.DB) error {
 		txDB := &DB{
-			gorm:      tx,
-			Blocks:    NewBlocksDB(tx),
-			Addresses: NewAddressesDB(tx),
+			gorm:         tx,
+			Blocks:       NewBlocksDB(tx),
+			Addresses:    NewAddressesDB(tx),
+			Deposit:      NewDepositDB(tx),
+			Withdraw:     NewWithdrawDB(tx),
+			Transactions: NewTransactionsDB(tx),
+			Token:        NewTokenDB(tx),
 		}
 		return fn(txDB)
 	})

@@ -22,18 +22,15 @@ CREATE INDEX IF NOT EXISTS blocks_number ON blocks(number);
 CREATE INDEX IF NOT EXISTS blocks_timestamp ON blocks(timestamp);
 
 
-CREATE TABLE IF NOT EXISTS contracts_event (
+CREATE TABLE IF NOT EXISTS token (
     guid  VARCHAR PRIMARY KEY,
-    block_hash VARCHAR NOT NULL REFERENCES blocks(hash) ON DELETE CASCADE,
-    contract_address VARCHAR NOT NULL,
-    transaction_hash VARCHAR NOT NULL,
-    log_index     INTEGER NOT NULL,
-    event_signature   VARCHAR NOT NULL,
-    timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0),
-    rlp_bytes VARCHAR NOT NULL
+    token_address VARCHAR NOT NULL,
+    unit SMALLINT NOT NULL DEFAULT 18,
+    token_name VARCHAR NOT NULL,
+    timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
  );
-CREATE INDEX IF NOT EXISTS contracts_event_timestamp ON contracts_event(timestamp);
-CREATE INDEX IF NOT EXISTS contracts_event_signature ON contracts_event(event_signature);
+CREATE INDEX IF NOT EXISTS token_timestamp ON token(timestamp);
+CREATE INDEX IF NOT EXISTS token_token_address ON token(token_address);
 
 
 CREATE TABLE IF NOT EXISTS addresses (
@@ -58,6 +55,7 @@ CREATE TABLE IF NOT EXISTS transactions (
      hash VARCHAR NOT NULL,
      from_address VARCHAR NOT NULL,
      to_address VARCHAR NOT NULL,
+     token_address VARCHAR NOT NULL,
      fee VARCHAR NOT NULL,
      amount VARCHAR NOT NULL,
      status SMALLINT NOT NULL DEFAULT 0,
@@ -79,6 +77,7 @@ CREATE TABLE IF NOT EXISTS deposit (
     hash VARCHAR NOT NULL,
     from_address VARCHAR NOT NULL,
     to_address VARCHAR NOT NULL,
+    token_address VARCHAR NOT NULL,
     fee VARCHAR NOT NULL,
     amount VARCHAR NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
@@ -99,6 +98,7 @@ CREATE TABLE IF NOT EXISTS withdraw (
     hash VARCHAR NOT NULL,
     from_address VARCHAR NOT NULL,
     to_address VARCHAR NOT NULL,
+    token_address VARCHAR NOT NULL,
     fee VARCHAR NOT NULL,
     amount VARCHAR NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
