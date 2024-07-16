@@ -48,6 +48,19 @@ CREATE INDEX IF NOT EXISTS addresses_address ON addresses(address);
 CREATE INDEX IF NOT EXISTS addresses_timestamp ON addresses(timestamp);
 
 
+CREATE TABLE IF NOT EXISTS balances (
+     guid  VARCHAR PRIMARY KEY,
+     address  VARCHAR NOT NULL,
+     address_type SMALLINT NOT NULL DEFAULT 0,
+     token_address VARCHAR NOT NULL,
+     balance  VARCHAR NOT NULL,
+     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
+);
+CREATE INDEX IF NOT EXISTS balances_address ON balances(address);
+CREATE INDEX IF NOT EXISTS balances_timestamp ON balances(timestamp);
+
+
+
 CREATE TABLE IF NOT EXISTS transactions (
      guid VARCHAR PRIMARY KEY,
      block_hash VARCHAR NOT NULL,
@@ -61,10 +74,7 @@ CREATE TABLE IF NOT EXISTS transactions (
      status SMALLINT NOT NULL DEFAULT 0,
      transaction_index UINT256 NOT NULL UNIQUE,
      tx_type SMALLINT NOT NULL DEFAULT 0,
-     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0),
-     r VARCHAR NOT NULL,
-     s VARCHAR NOT NULL,
-     v VARCHAR NOT NULL
+     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS transactions_hash ON transactions(hash);
 CREATE INDEX IF NOT EXISTS transactions_timestamp ON transactions(timestamp);
@@ -82,10 +92,7 @@ CREATE TABLE IF NOT EXISTS deposit (
     amount VARCHAR NOT NULL,
     status SMALLINT NOT NULL DEFAULT 0,
     transaction_index UINT256 NOT NULL UNIQUE,
-    timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0),
-    r VARCHAR NOT NULL,
-    s VARCHAR NOT NULL,
-    v VARCHAR NOT NULL
+    timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS deposit_hash ON deposit(hash);
 CREATE INDEX IF NOT EXISTS deposit_timestamp ON deposit(timestamp);
@@ -104,10 +111,7 @@ CREATE TABLE IF NOT EXISTS withdraw (
     status SMALLINT NOT NULL DEFAULT 0,
     transaction_index UINT256 NOT NULL UNIQUE,
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0),
-    tx_sign_hex VARCHAR NOT NULL,
-    r VARCHAR NOT NULL,
-    s VARCHAR NOT NULL,
-    v VARCHAR NOT NULL
+    tx_sign_hex VARCHAR NOT NULL
 );
 CREATE INDEX IF NOT EXISTS withdraw_hash ON withdraw(hash);
 CREATE INDEX IF NOT EXISTS withdraw_timestamp ON withdraw(timestamp);

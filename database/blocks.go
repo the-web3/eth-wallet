@@ -2,13 +2,13 @@ package database
 
 import (
 	"errors"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
+	"gorm.io/gorm"
 	"math/big"
 
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
+
 	common2 "github.com/the-web3/eth-wallet/database/utils"
 )
 

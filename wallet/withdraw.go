@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -68,38 +67,45 @@ func (w *Withdraw) Start() error {
 				log.Error("get unsend withdraw list fail", "err", err)
 				return err
 			}
-			hotWallet, err := w.db.Addresses.QueryHotWalletInfo()
-			if err != nil {
-				log.Error("query hot wallet info err", "err", err)
-				return err
-			}
-			// nonce
-			nonce, err := w.client.TxCountByAddress(hotWallet.Address)
-			if err != nil {
-				log.Error("query nonce by address fail", "err", err)
-				return err
-			}
+
 			var returnWithdrawList []database.Withdraw
 			index := 0
 			for _, withdraw := range withdrawList {
+				hotWallet, err := w.db.Addresses.QueryHotWalletInfo()
+				if err != nil {
+					log.Error("query hot wallet info err", "err", err)
+					return err
+				}
+
+				hotWalletTokenBalance, err := w.db.Balances.QueryHotWalletBalance(hotWallet.Address, withdraw.ToKenAddress)
+				if hotWalletTokenBalance.Balance.Cmp(withdraw.Amount) < 0 {
+					log.Info("hot wallet balance is not enough", "tokenAddress", withdraw.ToKenAddress)
+					continue
+				}
+
+				nonce, err := w.client.TxCountByAddress(hotWallet.Address)
+				if err != nil {
+					log.Error("query nonce by address fail", "err", err)
+					return err
+				}
+
 				var buildData []byte
 				var gasLimit uint64
 				var toAddress *common.Address
 				var amount *big.Int
-				amountToken, _ := strconv.ParseInt(hotWallet.Balance, 10, 64)
 				if withdraw.ToAddress.Hex() != "0x00" {
-					buildData = ethereum.BuildErc20Data(withdraw.ToAddress, big.NewInt(amountToken))
+					buildData = ethereum.BuildErc20Data(withdraw.ToAddress, withdraw.Amount)
 					toAddress = &withdraw.ToKenAddress
 					gasLimit = TokenGasLimit
 					amount = big.NewInt(0)
 				} else {
 					toAddress = toAddress
 					gasLimit = EthGasLimit
-					amount = big.NewInt(amountToken)
+					amount = withdraw.Amount
 				}
 				dFeeTx := &types.DynamicFeeTx{
 					ChainID:   big.NewInt(int64(w.chainConf.ChainID)),
-					Nonce:     nonce.Uint64(),
+					Nonce:     uint64(nonce),
 					GasTipCap: maxPriorityFeePerGas,
 					GasFeeCap: maxFeePerGas,
 					Gas:       gasLimit,
@@ -112,24 +118,23 @@ func (w *Withdraw) Start() error {
 					log.Error("offline transaction fail", "err", err)
 					return err
 				}
-				//  sendRawTx
 				log.Info("Offline sign tx success", "rawTx", rawTx)
 
+				// sendRawTx
 				hash, err := w.client.SendRawTransaction(rawTx)
 				if err != nil {
 					log.Error("send raw transaction fail", "err", err)
 					return err
 				}
-				returnWithdrawList[index].Hash = *hash
+				returnWithdrawList[index].Hash = hash
 				returnWithdrawList[index].GUID = withdraw.GUID
-
-				//  修改数据库
-				err = w.db.Withdraw.MarkWithdrawToSend(returnWithdrawList)
-				if err != nil {
-					log.Error("mark withdraw send fail", "err", err)
-					return err
-				}
 				index++
+			}
+
+			err = w.db.Withdraw.MarkWithdrawToSend(returnWithdrawList)
+			if err != nil {
+				log.Error("mark withdraw send fail", "err", err)
+				return err
 			}
 		}
 		return nil

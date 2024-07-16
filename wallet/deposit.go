@@ -105,14 +105,16 @@ func (d *Deposit) Start() error {
 }
 
 func (d *Deposit) processBatch(headers []types.Header) error {
-	var blockListForStore []database.Blocks
+	blockListForStore := make([]database.Blocks, len(headers))
 	var depositList []database.Deposit
 	var withdrawList []database.Withdraw
 	var depositTransactionList []database.Transactions
 	var outherTransactionList []database.Transactions
+	var tokenBalanceList []database.TokenBalance
 	var batchLastBlockNumber uint64
 	for i := range headers {
 		log.Info("handle block number", "number", headers[i].Number.String(), "blockHash", headers[i].Hash().String())
+
 		blockListForStore[i] = database.BlockHeaderFromHeader(&d.headers[i])
 
 		block, err := d.client.BlockByNumber(headers[i].Number)
@@ -120,11 +122,17 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 			log.Error("get block number error", "err", err)
 			return err
 		}
-		depositList, withdrawList, depositTransactionList, outherTransactionList, err = d.processTransactions(block.Transactions, block.BaseFee)
+		deposits, withdraws, depositTransactions, outherTransactions, tokenBalances, err := d.processTransactions(block.Transactions, block.BaseFee)
 		if err != nil {
 			log.Error("process transaction fail", "err", err)
 			return err
 		}
+
+		depositList = append(depositList, deposits...)
+		withdrawList = append(withdrawList, withdraws...)
+		depositTransactionList = append(depositTransactionList, depositTransactions...)
+		outherTransactionList = append(outherTransactionList, outherTransactions...)
+		tokenBalanceList = append(tokenBalanceList, tokenBalances...)
 		batchLastBlockNumber = headers[i].Number.Uint64()
 	}
 	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
@@ -139,6 +147,7 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 					return err
 				}
 			}
+
 			// 更新之前充值确认位
 			if err := tx.Deposit.UpdateDepositStatus(batchLastBlockNumber - uint64(d.chainConf.Confirmations)); err != nil {
 				return err
@@ -162,6 +171,12 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 				}
 			}
 
+			if len(tokenBalanceList) > 0 {
+				if err := tx.Balances.UpdateOrCreate(tokenBalanceList); err != nil {
+					return err
+				}
+			}
+
 			return nil
 		}); err != nil {
 			log.Error("unable to persist batch", "err", err)
@@ -174,48 +189,50 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 	return nil
 }
 
-func (d *Deposit) processTransactions(txList []string, baseFee string) ([]database.Deposit, []database.Withdraw, []database.Transactions, []database.Transactions, error) {
+func (d *Deposit) processTransactions(txList []string, baseFee string) ([]database.Deposit, []database.Withdraw, []database.Transactions, []database.Transactions, []database.TokenBalance, error) {
 	if len(txList) == 0 {
 		log.Error("no transactions")
-		return nil, nil, nil, nil, errors.New("no transactions")
+		return nil, nil, nil, nil, nil, errors.New("no transactions")
 	}
 	var depositList []database.Deposit
 	var withdrawList []database.Withdraw
 	var depositTransactionList []database.Transactions
 	var otherTransactionList []database.Transactions
+	var tokenBalanceList []database.TokenBalance
 	for _, txHash := range txList {
 		transaction, err := d.client.TxByHash(common.HexToHash(txHash))
 		if err != nil {
 			log.Error("get tx fail", err)
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		txReceipt, err := d.client.TxReceiptByHash(common.HexToHash(txHash))
 		if err != nil {
 			log.Error("get tx fail", err)
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		log.Info("handle transaction success", "txHash", transaction.Hash().String(), "txReceiptHash", txReceipt.TxHash.String())
 
 		// deposit
-		address, err := d.db.Addresses.QueryAddressesByToAddres(transaction.To())
+		log.Info("transaction to address", "toAddress", *transaction.To())
+		address, err := d.db.Addresses.QueryAddressesByToAddress(transaction.To())
 		if err != nil {
 			log.Error("query address from addresses table fail", "err", err)
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		// withdraw
 		withdraw, err := d.db.Withdraw.QueryWithdrawByHash(transaction.Hash())
 		if err != nil {
 			log.Error("query withdraw transaction fail", "err", err)
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
 		// collection cold
 		ccTx, err := d.db.Transactions.QueryTransactionByHash(transaction.Hash())
 		if err != nil {
 			log.Error("query withdraw transaction fail", "err", err)
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		var gasPrice *big.Int
 		var transactionFee *big.Int
@@ -234,42 +251,45 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 				deposit, err := d.HandleDeposit(transaction, txReceipt, transactionFee)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				depositList = append(depositList, deposit)
-				tx, err := d.HandleTransaction(transaction, txReceipt, transactionFee, txType)
+				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, txType)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				depositTransactionList = append(depositTransactionList, tx)
+				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 
 			if withdraw != nil && txReceipt.Status == 1 {
 				withdrawItem, err := d.HandleWithdaw(transaction, txReceipt, transactionFee)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				withdrawList = append(withdrawList, withdrawItem)
-				tx, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 1)
+				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 1)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				otherTransactionList = append(otherTransactionList, tx)
+				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 			if ccTx != nil && txReceipt.Status == 1 {
-				tx, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 2)
+				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 2)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
-					return nil, nil, nil, nil, err
+					return nil, nil, nil, nil, nil, err
 				}
 				otherTransactionList = append(otherTransactionList, tx)
+				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 		}
 	}
-	return depositList, withdrawList, depositTransactionList, otherTransactionList, nil
+	return depositList, withdrawList, depositTransactionList, otherTransactionList, tokenBalanceList, nil
 }
 
 func (d *Deposit) HandleDeposit(transaction *types.Transaction, receipt *types.Receipt, Fee *big.Int) (database.Deposit, error) {
@@ -277,22 +297,20 @@ func (d *Deposit) HandleDeposit(transaction *types.Transaction, receipt *types.R
 		return database.Deposit{}, errors.New("transation or receipt is empty")
 	}
 	guid, _ := uuid.NewUUID()
-	return database.Deposit{
+	deposit := database.Deposit{
 		GUID:             guid,
 		BlockHash:        receipt.BlockHash,
 		BlockNumber:      receipt.BlockNumber,
 		Hash:             transaction.Hash(),
 		FromAddress:      *transaction.To(),
 		ToAddress:        *transaction.To(),
-		Fee:              Fee.String(),
-		Amount:           transaction.Value().String(),
+		Fee:              Fee,
+		Amount:           transaction.Value(),
 		Status:           uint8(receipt.Status),
 		TransactionIndex: big.NewInt(int64(receipt.TransactionIndex)),
-		R:                "r",
-		S:                "s",
-		V:                "v",
-		Timestamp:        100000,
-	}, nil
+		Timestamp:        uint64(transaction.Time().Unix()),
+	}
+	return deposit, nil
 }
 
 func (d *Deposit) HandleWithdaw(transaction *types.Transaction, receipt *types.Receipt, Fee *big.Int) (database.Withdraw, error) {
@@ -300,45 +318,48 @@ func (d *Deposit) HandleWithdaw(transaction *types.Transaction, receipt *types.R
 		return database.Withdraw{}, errors.New("transation or receipt is empty")
 	}
 	guid, _ := uuid.NewUUID()
-	return database.Withdraw{
+	withdraw := database.Withdraw{
 		GUID:             guid,
 		BlockHash:        receipt.BlockHash,
 		BlockNumber:      receipt.BlockNumber,
 		Hash:             transaction.Hash(),
 		FromAddress:      *transaction.To(),
 		ToAddress:        *transaction.To(),
-		Fee:              Fee.String(),
-		Amount:           transaction.Value().String(),
+		Fee:              Fee,
+		Amount:           transaction.Value(),
 		Status:           uint8(receipt.Status),
 		TransactionIndex: big.NewInt(int64(receipt.TransactionIndex)),
 		TxSignHex:        "rsv",
-		R:                "r",
-		S:                "s",
-		V:                "v",
-		Timestamp:        100000,
-	}, nil
+		Timestamp:        uint64(transaction.Time().Unix()),
+	}
+	return withdraw, nil
 }
 
-func (d *Deposit) HandleTransaction(transaction *types.Transaction, receipt *types.Receipt, Fee *big.Int, txtype uint8) (database.Transactions, error) {
+func (d *Deposit) HandleTransaction(transaction *types.Transaction, receipt *types.Receipt, Fee *big.Int, txtype uint8) (database.Transactions, database.TokenBalance, error) {
 	if transaction == nil || receipt == nil {
-		return database.Transactions{}, errors.New("transation or receipt is empty")
+		return database.Transactions{}, database.TokenBalance{}, errors.New("transation or receipt is empty")
 	}
 	guid, _ := uuid.NewUUID()
-	return database.Transactions{
+	tx := database.Transactions{
 		GUID:             guid,
 		BlockHash:        receipt.BlockHash,
 		BlockNumber:      receipt.BlockNumber,
 		Hash:             transaction.Hash(),
 		FromAddress:      *transaction.To(),
 		ToAddress:        *transaction.To(),
-		Fee:              Fee.String(),
-		Amount:           transaction.Value().String(),
+		Fee:              Fee,
+		Amount:           transaction.Value(),
 		Status:           uint8(receipt.Status),
 		TransactionIndex: big.NewInt(int64(receipt.TransactionIndex)),
 		TxType:           txtype,
-		R:                "r",
-		S:                "s",
-		V:                "v",
-		Timestamp:        100000,
-	}, nil
+		Timestamp:        uint64(transaction.Time().Unix()),
+	}
+
+	balance := database.TokenBalance{
+		Address:      *transaction.To(),
+		ToKenAddress: *transaction.To(),
+		Balance:      transaction.Value(),
+		TxType:       txtype,
+	}
+	return tx, balance, nil
 }

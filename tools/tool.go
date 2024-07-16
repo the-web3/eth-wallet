@@ -1,11 +1,10 @@
 package tools
 
 import (
-	"github.com/google/uuid"
-	"github.com/urfave/cli/v2"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/google/uuid"
+	"github.com/urfave/cli/v2"
 
 	"github.com/the-web3/eth-wallet/database"
 	"github.com/the-web3/eth-wallet/wallet/ethereum"
@@ -38,7 +37,6 @@ func CreateAddressTools(ctx *cli.Context, db *database.DB) error {
 			AddressType: AddressType,
 			PrivateKey:  addressStruct.PrivateKey,
 			PublicKey:   addressStruct.PublicKey,
-			Balance:     "0",
 			Timestamp:   uint64(index + 10000),
 		}
 		addressList = append(addressList, addressItem)

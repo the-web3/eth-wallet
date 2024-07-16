@@ -17,14 +17,11 @@ type Withdraw struct {
 	FromAddress      common.Address `json:"from_address" gorm:"serializer:bytes"`
 	ToAddress        common.Address `json:"to_address" gorm:"serializer:bytes"`
 	ToKenAddress     common.Address `json:"token_address" gorm:"serializer:bytes"`
-	Fee              string         `json:"fee"`
-	Amount           string         `json:"amount"`
-	Status           uint8          `json:"status"` //0:提现未签名发送,1:提现已经发送到区块链网络；2:提现已上链；3:提现在钱包层已完成；4:提现已通知业务；5:提现成功
+	Fee              *big.Int       `gorm:"serializer:u256;column:fee" db:"fee" json:"Fee" form:"fee"`
+	Amount           *big.Int       `gorm:"serializer:u256;column:amount" db:"amount" json:"Amount" form:"amount"`
+	Status           uint8          `json:"status"` // 0:提现未签名发送,1:提现已经发送到区块链网络；2:提现已上链；3:提现在钱包层已完成；4:提现已通知业务；5:提现成功
 	TransactionIndex *big.Int       `gorm:"serializer:u256;column:transaction_index" db:"transaction_index" json:"TransactionIndex" form:"transaction_index"`
 	TxSignHex        string         `json:"tx_sign_hex"`
-	R                string         `json:"r"`
-	S                string         `json:"s"`
-	V                string         `json:"v"`
 	Timestamp        uint64
 }
 
@@ -47,7 +44,7 @@ type withdrawDB struct {
 
 func (db *withdrawDB) QueryWithdrawByHash(hash common.Hash) (*Withdraw, error) {
 	var withdrawEntity Withdraw
-	db.gorm.Table("withdraw").Where("hash", hash).Take(&withdrawEntity)
+	db.gorm.Table("withdraw").Where("hash", hash.String()).Take(&withdrawEntity)
 	return &withdrawEntity, nil
 }
 

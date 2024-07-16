@@ -17,13 +17,10 @@ type Deposit struct {
 	FromAddress      common.Address `json:"from_address" gorm:"serializer:bytes"`
 	ToAddress        common.Address `json:"to_address" gorm:"serializer:bytes"`
 	ToKenAddress     common.Address `json:"token_address" gorm:"serializer:bytes"`
-	Fee              string         `json:"fee"`
-	Amount           string         `json:"amount"`
+	Fee              *big.Int       `gorm:"serializer:u256;column:fee" db:"fee" json:"Fee" form:"fee"`
+	Amount           *big.Int       `gorm:"serializer:u256;column:amount" db:"amount" json:"Amount" form:"amount"`
 	Status           uint8          `json:"status"` //0:充值确认中,1:充值钱包层已到账；2:充值已通知业务层；3:充值完成
 	TransactionIndex *big.Int       `gorm:"serializer:u256;column:transaction_index" db:"transaction_index" json:"TransactionIndex" form:"transaction_index"`
-	R                string         `json:"r"`
-	S                string         `json:"s"`
-	V                string         `json:"v"`
 	Timestamp        uint64
 }
 
