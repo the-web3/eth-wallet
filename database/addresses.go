@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"gorm.io/gorm"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -37,7 +38,7 @@ type addressesDB struct {
 
 func (db *addressesDB) QueryAddressesByToAddress(address *common.Address) (*Addresses, error) {
 	var addressEntry Addresses
-	err := db.gorm.Table("addresses").Where("address", address.String()).Take(&addressEntry).Error
+	err := db.gorm.Table("addresses").Where("address", strings.ToLower(address.String())).Take(&addressEntry).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil

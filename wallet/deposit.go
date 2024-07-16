@@ -154,34 +154,34 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 
 			fmt.Println("batchLastBlockNumber", "batchLastBlockNumber", batchLastBlockNumber)
 
-			// 更新之前充值确认位
-			if err := tx.Deposits.UpdateDepositsStatus(batchLastBlockNumber - uint64(d.chainConf.Confirmations)); err != nil {
-				return err
-			}
-
-			if len(withdrawList) > 0 {
-				if err := tx.Withdraws.UpdateTransactionStatus(withdrawList); err != nil {
-					return err
-				}
-			}
-
-			if len(depositTransactionList) > 0 {
-				if err := tx.Transactions.StoreTransactions(depositTransactionList, uint64(len(depositTransactionList))); err != nil {
-					return err
-				}
-			}
-
-			if len(outherTransactionList) > 0 { // 提现和归集
-				if err := tx.Transactions.UpdateTransactionStatus(outherTransactionList); err != nil {
-					return err
-				}
-			}
-
-			if len(tokenBalanceList) > 0 {
-				if err := tx.Balances.UpdateOrCreate(tokenBalanceList); err != nil {
-					return err
-				}
-			}
+			//// 更新之前充值确认位
+			//if err := tx.Deposits.UpdateDepositsStatus(batchLastBlockNumber - uint64(d.chainConf.Confirmations)); err != nil {
+			//	return err
+			//}
+			//
+			//if len(withdrawList) > 0 {
+			//	if err := tx.Withdraws.UpdateTransactionStatus(withdrawList); err != nil {
+			//		return err
+			//	}
+			//}
+			//
+			//if len(depositTransactionList) > 0 {
+			//	if err := tx.Transactions.StoreTransactions(depositTransactionList, uint64(len(depositTransactionList))); err != nil {
+			//		return err
+			//	}
+			//}
+			//
+			//if len(outherTransactionList) > 0 { // 提现和归集
+			//	if err := tx.Transactions.UpdateTransactionStatus(outherTransactionList); err != nil {
+			//		return err
+			//	}
+			//}
+			//
+			//if len(tokenBalanceList) > 0 {
+			//	if err := tx.Balances.UpdateOrCreate(tokenBalanceList); err != nil {
+			//		return err
+			//	}
+			//}
 
 			return nil
 		}); err != nil {
@@ -233,6 +233,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 			log.Error("query token info fail", "err", err)
 			continue
 		}
+		log.Info("=query token by address success=", "tokens", tokens)
 
 		if tokens != nil {
 			isToken = true
@@ -265,10 +266,13 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 
 		adddressTo, err := d.db.Addresses.QueryAddressesByToAddress(&toAddress)
 		if err != nil {
-			log.Error("query address from addresses table fail", "err", err)
+			log.Error("query to address from addresses table fail", "err", err)
 		}
-		addressFrom, _ := d.db.Addresses.QueryAddressesByToAddress(&fromAddress)
-		if (adddressTo == nil || tokens == nil) && addressFrom == nil {
+		addressFrom, err := d.db.Addresses.QueryAddressesByToAddress(&fromAddress)
+		if err != nil {
+			log.Error("query from address from addresses table fail", "err", err)
+		}
+		if adddressTo == nil && addressFrom == nil {
 			log.Info("no transaction relate to wallet")
 			continue
 		}

@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+option go_package = "./proto/wallet";
+option java_package = "group.thewebthree.wallet";
+package services.thewebthree.wallet;
+
+// 交易所或者中心化钱包业务层对接接口
+message WithdrawReq {
+  string consumer_token = 1;
+  string chain_id = 2;
+  string from_address = 3;
+  string to_address = 4;
+  string amount = 5;
+}
+
+message WithdrawRep {
+  string code=1;
+  string msg=2;
+  string hash=3;
+}
+
+message DepositNotifyReq {
+  string consumer_token = 1;
+  string chain_id = 2;
+  string hash = 3;
+  string from_address = 4;
+  string to_address = 5;
+  string amount = 6;
+  string fee = 7;
+  uint64 block = 8;
+  uint32 status=9;  // 0:充值确认中，1:充值成功
+}
+
+message DepositNotifyRep {
+  string code=1;
+  string msg=2;
+  bool success = 3;
+}
+
+message WithdrawNotifyReq {
+  string consumer_token = 1;
+  string chain_id = 2;
+  string hash = 3;
+  uint32 status=4;  // 0:提现确认中，1:提现成功
+}
+
+message WithdrawNotifyRep {
+  string code=1;
+  string msg=2;
+  bool  success = 3;
+}
+
+// 和风控层面对接的接口
+message RiskVerifyAddressReq {
+  string consumer_token = 1;
+  string chain_id = 2;
+  string chain_name = 3;
+  string address = 4;        // 对于钱包来说是 fromAddress
+}
+
+message RiskVerifyAddressRep {
+  string code=1;
+  string msg=2;
+  bool  verify = 3;
+}
+
+
+message RiskWithdrawVerifyReq {
+  string consumer_token = 1;
+  string msg_hash = 2;
+  string sign_msg = 3;
+}
+/*
+sign: request_id, from, to, amount, fee, nonce, memo 做一次 hash 的 signMessage(签名 Msg)
+ */
+message RiskWithdrawVerifyRep {
+  string code = 1;
+  string msg = 2;
+  bool  verify = 3;
+}
+
+/*
+sign: request_id, from, to, amount, fee, gasPrice, gasLimit, hash, nonce, memo 做一次 hash 的 signMessage(签名 Msg)
+ */
+message RiskDOrWNotifyVerifyReq {
+  string consumer_token = 1;
+  string msg_hash = 2;
+  string sign_msg = 3;
+}
+
+message RiskDOrWNotifyVerifyRep {
+  string code = 1;
+  string msg = 2;
+  bool  verify = 3;
+}
+
+
+service WalletService {
+  rpc submitWithdrawInfo(WithdrawReq) returns (WithdrawReq) {}                           // 提交提现交易(业务调用钱包接口)
+  rpc depositNotify(DepositNotifyReq) returns (DepositNotifyRep) {}                      // 充值通知(钱包调用业务层的接口)
+  rpc withdrawNotify(WithdrawNotifyReq) returns (WithdrawNotifyRep) {}                   // 提现通知（钱包调业务层的接口）
+  rpc verifyAddress(RiskVerifyAddressReq) returns (RiskVerifyAddressRep) {}              // 黑地址和灰地址的验证（防洗钱, 这样的地址进来资金直接冻结）
+  rpc verifyWithdrawSign(RiskWithdrawVerifyReq) returns (RiskWithdrawVerifyRep) {}       // 提现签名风控
+  rpc verifyRiskDOrWNotify(RiskDOrWNotifyVerifyReq) returns (RiskDOrWNotifyVerifyRep) {} // 提现到账风控接口, 充值到账分控
+
+  // 和财务，业务资产负债，对账单
+}
