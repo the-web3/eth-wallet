@@ -22,15 +22,15 @@ CREATE INDEX IF NOT EXISTS blocks_number ON blocks(number);
 CREATE INDEX IF NOT EXISTS blocks_timestamp ON blocks(timestamp);
 
 
-CREATE TABLE IF NOT EXISTS token (
+CREATE TABLE IF NOT EXISTS tokens (
     guid  VARCHAR PRIMARY KEY,
     token_address VARCHAR NOT NULL,
     unit SMALLINT NOT NULL DEFAULT 18,
     token_name VARCHAR NOT NULL,
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
  );
-CREATE INDEX IF NOT EXISTS token_timestamp ON token(timestamp);
-CREATE INDEX IF NOT EXISTS token_token_address ON token(token_address);
+CREATE INDEX IF NOT EXISTS tokens_timestamp ON tokens(timestamp);
+CREATE INDEX IF NOT EXISTS tokens_token_address ON tokens(token_address);
 
 
 CREATE TABLE IF NOT EXISTS addresses (
@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS addresses (
     address_type SMALLINT NOT NULL DEFAULT 0,
     private_key VARCHAR NOT NULL,
     public_key VARCHAR NOT NULL,
-    balance  VARCHAR NOT NULL,
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS addresses_user_uid ON addresses(user_uid);
@@ -80,7 +79,7 @@ CREATE INDEX IF NOT EXISTS transactions_hash ON transactions(hash);
 CREATE INDEX IF NOT EXISTS transactions_timestamp ON transactions(timestamp);
 
 
-CREATE TABLE IF NOT EXISTS deposit (
+CREATE TABLE IF NOT EXISTS deposits (
     guid  VARCHAR PRIMARY KEY,
     block_hash VARCHAR NOT NULL,
     block_number UINT256 NOT NULL UNIQUE CHECK(block_number>0),
@@ -94,11 +93,11 @@ CREATE TABLE IF NOT EXISTS deposit (
     transaction_index UINT256 NOT NULL UNIQUE,
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
 );
-CREATE INDEX IF NOT EXISTS deposit_hash ON deposit(hash);
-CREATE INDEX IF NOT EXISTS deposit_timestamp ON deposit(timestamp);
+CREATE INDEX IF NOT EXISTS deposits_hash ON deposits(hash);
+CREATE INDEX IF NOT EXISTS deposits_timestamp ON deposits(timestamp);
 
 
-CREATE TABLE IF NOT EXISTS withdraw (
+CREATE TABLE IF NOT EXISTS withdraws (
     guid  VARCHAR PRIMARY KEY,
     block_hash VARCHAR NOT NULL,
     block_number UINT256 NOT NULL UNIQUE CHECK(block_number>0),
@@ -113,5 +112,5 @@ CREATE TABLE IF NOT EXISTS withdraw (
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0),
     tx_sign_hex VARCHAR NOT NULL
 );
-CREATE INDEX IF NOT EXISTS withdraw_hash ON withdraw(hash);
-CREATE INDEX IF NOT EXISTS withdraw_timestamp ON withdraw(timestamp);
+CREATE INDEX IF NOT EXISTS withdraws_hash ON withdraws(hash);
+CREATE INDEX IF NOT EXISTS withdraws_timestamp ON withdraws(timestamp);

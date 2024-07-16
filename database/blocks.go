@@ -7,8 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
-
 	common2 "github.com/the-web3/eth-wallet/database/utils"
 )
 
@@ -58,12 +56,9 @@ func (db *blocksDB) LatestBlocks() (*Blocks, error) {
 	result := db.gorm.Order("number DESC").Take(&l1Header)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			log.Error("record not found for query latest block")
 			return nil, nil
 		}
-
 		return nil, result.Error
 	}
-
 	return &l1Header, nil
 }

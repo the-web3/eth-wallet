@@ -59,16 +59,16 @@ func (w *Withdraw) Close() error {
 
 func (w *Withdraw) Start() error {
 	log.Info("start withdraw......")
-	tickerWithdrawWorker := time.NewTicker(time.Second * 5)
+	tickerWithdrawsWorker := time.NewTicker(time.Second * 5)
 	w.tasks.Go(func() error {
-		for range tickerWithdrawWorker.C {
-			withdrawList, err := w.db.Withdraw.UnSendWithdrawList()
+		for range tickerWithdrawsWorker.C {
+			withdrawList, err := w.db.Withdraws.UnSendWithdrawsList()
 			if err != nil {
 				log.Error("get unsend withdraw list fail", "err", err)
 				return err
 			}
 
-			var returnWithdrawList []database.Withdraw
+			var returnWithdrawsList []database.Withdraws
 			index := 0
 			for _, withdraw := range withdrawList {
 				hotWallet, err := w.db.Addresses.QueryHotWalletInfo()
@@ -77,9 +77,9 @@ func (w *Withdraw) Start() error {
 					return err
 				}
 
-				hotWalletTokenBalance, err := w.db.Balances.QueryHotWalletBalance(hotWallet.Address, withdraw.ToKenAddress)
+				hotWalletTokenBalance, err := w.db.Balances.QueryHotWalletBalance(hotWallet.Address, withdraw.TokenAddress)
 				if hotWalletTokenBalance.Balance.Cmp(withdraw.Amount) < 0 {
-					log.Info("hot wallet balance is not enough", "tokenAddress", withdraw.ToKenAddress)
+					log.Info("hot wallet balance is not enough", "tokenAddress", withdraw.TokenAddress)
 					continue
 				}
 
@@ -95,7 +95,7 @@ func (w *Withdraw) Start() error {
 				var amount *big.Int
 				if withdraw.ToAddress.Hex() != "0x00" {
 					buildData = ethereum.BuildErc20Data(withdraw.ToAddress, withdraw.Amount)
-					toAddress = &withdraw.ToKenAddress
+					toAddress = &withdraw.TokenAddress
 					gasLimit = TokenGasLimit
 					amount = big.NewInt(0)
 				} else {
@@ -126,12 +126,12 @@ func (w *Withdraw) Start() error {
 					log.Error("send raw transaction fail", "err", err)
 					return err
 				}
-				returnWithdrawList[index].Hash = hash
-				returnWithdrawList[index].GUID = withdraw.GUID
+				returnWithdrawsList[index].Hash = hash
+				returnWithdrawsList[index].GUID = withdraw.GUID
 				index++
 			}
 
-			err = w.db.Withdraw.MarkWithdrawToSend(returnWithdrawList)
+			err = w.db.Withdraws.MarkWithdrawsToSend(returnWithdrawsList)
 			if err != nil {
 				log.Error("mark withdraw send fail", "err", err)
 				return err

@@ -17,7 +17,7 @@ type Transactions struct {
 	Hash             common.Hash    `gorm:"column:hash;serializer:bytes"  db:"hash" json:"hash"`
 	FromAddress      common.Address `json:"from_address" gorm:"serializer:bytes"`
 	ToAddress        common.Address `json:"to_address" gorm:"serializer:bytes"`
-	ToKenAddress     common.Address `json:"token_address" gorm:"serializer:bytes"`
+	TokenAddress     common.Address `json:"token_address" gorm:"serializer:bytes"`
 	Fee              *big.Int       `gorm:"serializer:u256;column:fee" db:"fee" json:"Fee" form:"fee"`
 	Amount           *big.Int       `gorm:"serializer:u256;column:amount" db:"amount" json:"Amount" form:"amount"`
 	Status           uint8          `json:"status"`  // 0:交易确认中,1:钱包交易已到账；2:交易已通知业务层；3:交易完成

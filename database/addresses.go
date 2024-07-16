@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"gorm.io/gorm"
 
 	"github.com/google/uuid"
@@ -36,7 +37,13 @@ type addressesDB struct {
 
 func (db *addressesDB) QueryAddressesByToAddress(address *common.Address) (*Addresses, error) {
 	var addressEntry Addresses
-	db.gorm.Table("addresses").Where("address", address.String()).Take(&addressEntry)
+	err := db.gorm.Table("addresses").Where("address", address.String()).Take(&addressEntry).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &addressEntry, nil
 }
 
@@ -51,12 +58,24 @@ func (db *addressesDB) StoreAddressess(addressList []Addresses, addressLength ui
 
 func (db *addressesDB) QueryHotWalletInfo() (*Addresses, error) {
 	var addressEntry Addresses
-	db.gorm.Table("addresses").Where("address_type", 1).Take(&addressEntry)
+	err := db.gorm.Table("addresses").Where("address_type", 1).Take(&addressEntry).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &addressEntry, nil
 }
 
 func (db *addressesDB) QueryColdWalletInfo() (*Addresses, error) {
 	var addressEntry Addresses
-	db.gorm.Table("addresses").Where("address_type", 2).Take(&addressEntry)
+	err := db.gorm.Table("addresses").Where("address_type", 2).Take(&addressEntry).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
 	return &addressEntry, nil
 }

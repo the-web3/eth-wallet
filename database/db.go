@@ -21,10 +21,10 @@ type DB struct {
 	Blocks       BlocksDB
 	Addresses    AddressesDB
 	Balances     BalancesDB
-	Deposit      DepositDB
-	Withdraw     WithdrawDB
+	Deposits     DepositsDB
+	Withdraws    WithdrawsDB
 	Transactions TransactionsDB
-	Token        TokenDB
+	Tokens       TokensDB
 }
 
 func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
@@ -63,10 +63,10 @@ func NewDB(ctx context.Context, dbConfig config.DBConfig) (*DB, error) {
 		Blocks:       NewBlocksDB(gorm),
 		Addresses:    NewAddressesDB(gorm),
 		Balances:     NewBalancesDB(gorm),
-		Deposit:      NewDepositDB(gorm),
-		Withdraw:     NewWithdrawDB(gorm),
+		Deposits:     NewDepositsDB(gorm),
+		Withdraws:    NewWithdrawsDB(gorm),
 		Transactions: NewTransactionsDB(gorm),
-		Token:        NewTokenDB(gorm),
+		Tokens:       NewTokensDB(gorm),
 	}
 	return db, nil
 }
@@ -78,10 +78,10 @@ func (db *DB) Transaction(fn func(db *DB) error) error {
 			Blocks:       NewBlocksDB(tx),
 			Addresses:    NewAddressesDB(tx),
 			Balances:     NewBalancesDB(tx),
-			Deposit:      NewDepositDB(tx),
-			Withdraw:     NewWithdrawDB(tx),
+			Deposits:     NewDepositsDB(tx),
+			Withdraws:    NewWithdrawsDB(tx),
 			Transactions: NewTransactionsDB(tx),
-			Token:        NewTokenDB(tx),
+			Tokens:       NewTokensDB(tx),
 		}
 		return fn(txDB)
 	})

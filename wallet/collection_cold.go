@@ -115,9 +115,9 @@ func (cc *CollectionCold) ToCold() error {
 			var gasLimit uint64
 			var toAddress *common.Address
 			var amount *big.Int
-			if value.ToKenAddress.Hex() != "0x00" {
+			if value.TokenAddress.Hex() != "0x00" {
 				buildData = ethereum.BuildErc20Data(coldWalletInfo.Address, value.Balance)
-				toAddress = &value.ToKenAddress
+				toAddress = &value.TokenAddress
 				gasLimit = TokenGasLimit
 				amount = big.NewInt(0)
 			} else {
@@ -156,7 +156,7 @@ func (cc *CollectionCold) ToCold() error {
 				Hash:             hash,
 				FromAddress:      value.Address,
 				ToAddress:        coldWalletInfo.Address,
-				ToKenAddress:     value.ToKenAddress,
+				TokenAddress:     value.TokenAddress,
 				Fee:              big.NewInt(0),
 				Amount:           value.Balance,
 				Status:           0,
@@ -219,9 +219,9 @@ func (cc *CollectionCold) Collection() error {
 		var gasLimit uint64
 		var toAddress *common.Address
 		var amount *big.Int
-		if uncollect.ToKenAddress.Hex() != "0x00" {
+		if uncollect.TokenAddress.Hex() != "0x00" {
 			buildData = ethereum.BuildErc20Data(hotWalletInfo.Address, uncollect.Balance)
-			toAddress = &uncollect.ToKenAddress
+			toAddress = &uncollect.TokenAddress
 			gasLimit = TokenGasLimit
 			amount = big.NewInt(0)
 		} else {
@@ -260,7 +260,7 @@ func (cc *CollectionCold) Collection() error {
 			Hash:             hash,
 			FromAddress:      uncollect.Address,
 			ToAddress:        hotWalletInfo.Address,
-			ToKenAddress:     uncollect.ToKenAddress,
+			TokenAddress:     uncollect.TokenAddress,
 			Fee:              big.NewInt(0),
 			Amount:           uncollect.Balance,
 			Status:           0,
