@@ -96,7 +96,7 @@ message RiskDOrWNotifyVerifyRep {
 
 
 service WalletService {
-  rpc submitWithdrawInfo(WithdrawReq) returns (WithdrawReq) {}                           // 提交提现交易(业务调用钱包接口)
+  rpc submitWithdrawInfo(WithdrawReq) returns (WithdrawRep) {}                           // 提交提现交易(业务调用钱包接口)
   rpc depositNotify(DepositNotifyReq) returns (DepositNotifyRep) {}                      // 充值通知(钱包调用业务层的接口)
   rpc withdrawNotify(WithdrawNotifyReq) returns (WithdrawNotifyRep) {}                   // 提现通知（钱包调业务层的接口）
   rpc verifyAddress(RiskVerifyAddressReq) returns (RiskVerifyAddressRep) {}              // 黑地址和灰地址的验证（防洗钱, 这样的地址进来资金直接冻结）

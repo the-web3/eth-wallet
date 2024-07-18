@@ -1,32 +1,76 @@
 package services
 
 import (
+	"context"
+	"fmt"
+	"net"
+	"sync/atomic"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"net"
 
 	"github.com/ethereum/go-ethereum/log"
+
+	"github.com/the-web3/eth-wallet/database"
 	"github.com/the-web3/eth-wallet/proto/wallet"
 )
 
-func startRpcServer() {
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(Interceptor))
-	defer grpcServer.GracefulStop()
+const MaxRecvMessageSize = 1024 * 1024 * 300
 
-	wallet.RegisterWalletServiceServer(grpcServer, nil)
+type RpcServerConfig struct {
+	GrpcHostname string
+	GrpcPort     int
+}
 
-	listen, err := net.Listen("tcp", ":"+"8989")
-	if err != nil {
-		log.Error("net listen failed", "err", err)
-		panic(err)
-	}
-	reflection.Register(grpcServer)
+type RpcServer struct {
+	*RpcServerConfig
+	db *database.DB
 
-	log.Info("savour dao start success", "port", "8989")
+	wallet.UnimplementedWalletServiceServer
+	stopped atomic.Bool
+}
 
-	if err := grpcServer.Serve(listen); err != nil {
-		log.Error("grpc server serve failed", "err", err)
-		panic(err)
-	}
+func (s *RpcServer) Stop(ctx context.Context) error {
+	s.stopped.Store(true)
+	return nil
+}
 
+func (s *RpcServer) Stopped() bool {
+	return s.stopped.Load()
+}
+
+func NewRpcServer(db *database.DB, config *RpcServerConfig) (*RpcServer, error) {
+	return &RpcServer{
+		RpcServerConfig: config,
+		db:              db,
+	}, nil
+}
+
+func (s *RpcServer) Start(ctx context.Context) error {
+	go func(s *RpcServer) {
+		addr := fmt.Sprintf("%s:%d", s.GrpcHostname, s.GrpcPort)
+		log.Info("start rpc server", "addr", addr)
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Error("Could not start tcp listener. ")
+		}
+
+		opt := grpc.MaxRecvMsgSize(MaxRecvMessageSize)
+
+		gs := grpc.NewServer(
+			opt,
+			grpc.ChainUnaryInterceptor(
+				nil,
+			),
+		)
+		reflection.Register(gs)
+
+		wallet.RegisterWalletServiceServer(gs, s)
+
+		log.Info("Grpc info", "port", s.GrpcPort, "address", listener.Addr())
+		if err := gs.Serve(listener); err != nil {
+			log.Error("Could not GRPC server")
+		}
+	}(s)
+	return nil
 }

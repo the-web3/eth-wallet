@@ -31,7 +31,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WalletServiceClient interface {
-	SubmitWithdrawInfo(ctx context.Context, in *WithdrawReq, opts ...grpc.CallOption) (*WithdrawReq, error)
+	SubmitWithdrawInfo(ctx context.Context, in *WithdrawReq, opts ...grpc.CallOption) (*WithdrawRep, error)
 	DepositNotify(ctx context.Context, in *DepositNotifyReq, opts ...grpc.CallOption) (*DepositNotifyRep, error)
 	WithdrawNotify(ctx context.Context, in *WithdrawNotifyReq, opts ...grpc.CallOption) (*WithdrawNotifyRep, error)
 	VerifyAddress(ctx context.Context, in *RiskVerifyAddressReq, opts ...grpc.CallOption) (*RiskVerifyAddressRep, error)
@@ -47,8 +47,8 @@ func NewWalletServiceClient(cc grpc.ClientConnInterface) WalletServiceClient {
 	return &walletServiceClient{cc}
 }
 
-func (c *walletServiceClient) SubmitWithdrawInfo(ctx context.Context, in *WithdrawReq, opts ...grpc.CallOption) (*WithdrawReq, error) {
-	out := new(WithdrawReq)
+func (c *walletServiceClient) SubmitWithdrawInfo(ctx context.Context, in *WithdrawReq, opts ...grpc.CallOption) (*WithdrawRep, error) {
+	out := new(WithdrawRep)
 	err := c.cc.Invoke(ctx, WalletService_SubmitWithdrawInfo_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (c *walletServiceClient) VerifyRiskDOrWNotify(ctx context.Context, in *Risk
 // All implementations must embed UnimplementedWalletServiceServer
 // for forward compatibility
 type WalletServiceServer interface {
-	SubmitWithdrawInfo(context.Context, *WithdrawReq) (*WithdrawReq, error)
+	SubmitWithdrawInfo(context.Context, *WithdrawReq) (*WithdrawRep, error)
 	DepositNotify(context.Context, *DepositNotifyReq) (*DepositNotifyRep, error)
 	WithdrawNotify(context.Context, *WithdrawNotifyReq) (*WithdrawNotifyRep, error)
 	VerifyAddress(context.Context, *RiskVerifyAddressReq) (*RiskVerifyAddressRep, error)
@@ -118,7 +118,7 @@ type WalletServiceServer interface {
 type UnimplementedWalletServiceServer struct {
 }
 
-func (UnimplementedWalletServiceServer) SubmitWithdrawInfo(context.Context, *WithdrawReq) (*WithdrawReq, error) {
+func (UnimplementedWalletServiceServer) SubmitWithdrawInfo(context.Context, *WithdrawReq) (*WithdrawRep, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitWithdrawInfo not implemented")
 }
 func (UnimplementedWalletServiceServer) DepositNotify(context.Context, *DepositNotifyReq) (*DepositNotifyRep, error) {

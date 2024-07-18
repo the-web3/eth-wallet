@@ -2,9 +2,11 @@ package database
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"math/big"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -26,6 +28,7 @@ type Deposits struct {
 }
 
 type DepositsView interface {
+	ApiDepositList(string, int, int, string) ([]Deposits, int64)
 }
 
 type DepositsDB interface {
@@ -37,6 +40,35 @@ type DepositsDB interface {
 
 type depositsDB struct {
 	gorm *gorm.DB
+}
+
+func (db *depositsDB) ApiDepositList(address string, page int, pageSize int, order string) (l1l2List []Deposits, total int64) {
+	var totalRecord int64
+	var depositList []Deposits
+	queryStateRoot := db.gorm.Table("deposits")
+	if address != "0x00" {
+		err := db.gorm.Table("deposits").Select("block_number").Where("to_address = ?", address).Count(&totalRecord).Error
+		if err != nil {
+			log.Error("get deposit list by address count fail")
+		}
+		queryStateRoot.Where(" to_address = ?", address).Offset((page - 1) * pageSize).Limit(pageSize)
+	} else {
+		err := db.gorm.Table("deposits").Select("block_number").Count(&totalRecord).Error
+		if err != nil {
+			log.Error("get deposit list by address count fail ")
+		}
+		queryStateRoot.Offset((page - 1) * pageSize).Limit(pageSize)
+	}
+	if strings.ToLower(order) == "asc" {
+		queryStateRoot.Order("timestamp asc")
+	} else {
+		queryStateRoot.Order("timestamp desc")
+	}
+	qErr := queryStateRoot.Find(&depositList).Error
+	if qErr != nil {
+		log.Error("get deposit list fail", "err", qErr)
+	}
+	return depositList, totalRecord
 }
 
 func (db *depositsDB) UpdateDepositsStatus(blockNumber uint64) error {

@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/the-web3/eth-wallet/tools"
+	"fmt"
 
 	"github.com/urfave/cli/v2"
 
@@ -16,6 +16,8 @@ import (
 	"github.com/the-web3/eth-wallet/config"
 	"github.com/the-web3/eth-wallet/database"
 	flags2 "github.com/the-web3/eth-wallet/flags"
+	"github.com/the-web3/eth-wallet/services"
+	"github.com/the-web3/eth-wallet/tools"
 )
 
 func runEthWallet(ctx *cli.Context, shutdown context.CancelCauseFunc) (cliapp.Lifecycle, error) {
@@ -39,7 +41,22 @@ func runRestApi(ctx *cli.Context, shutdown context.CancelCauseFunc) (cliapp.Life
 }
 
 func runRpc(ctx *cli.Context, shutdown context.CancelCauseFunc) (cliapp.Lifecycle, error) {
-	return nil, nil
+	fmt.Println("running grpc server...")
+	cfg, err := config.LoadConfig(ctx)
+	if err != nil {
+		log.Error("failed to load config", "err", err)
+		return nil, err
+	}
+	grpcServerCfg := &services.RpcServerConfig{
+		GrpcHostname: cfg.RpcServer.Host,
+		GrpcPort:     cfg.RpcServer.Port,
+	}
+	db, err := database.NewDB(ctx.Context, cfg.MasterDB)
+	if err != nil {
+		log.Error("failed to connect to database", "err", err)
+		return nil, err
+	}
+	return services.NewRpcServer(db, grpcServerCfg)
 }
 
 func runGenerateAddress(ctx *cli.Context) error {
@@ -69,7 +86,12 @@ func runMigrations(ctx *cli.Context) error {
 		log.Error("failed to connect to database", "err", err)
 		return err
 	}
-	defer db.Close()
+	defer func(db *database.DB) {
+		err := db.Close()
+		if err != nil {
+			log.Error("fail to close database", "err", err)
+		}
+	}(db)
 	return db.ExecuteSQLMigration(cfg.Migrations)
 }
 

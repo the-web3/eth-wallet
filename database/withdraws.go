@@ -2,11 +2,15 @@ package database
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"math/big"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type Withdraws struct {
@@ -28,6 +32,9 @@ type Withdraws struct {
 type WithdrawsView interface {
 	QueryWithdrawsByHash(hash common.Hash) (*Withdraws, error)
 	UnSendWithdrawsList() ([]Withdraws, error)
+	ApiWithdrawList(string, int, int, string) ([]Withdraws, int64)
+
+	SubmitWithdrawFromBusiness(fromAddress common.Address, toAddress common.Address, TokenAddress common.Address, amount *big.Int) error
 }
 
 type WithdrawsDB interface {
@@ -42,6 +49,35 @@ type withdrawsDB struct {
 	gorm *gorm.DB
 }
 
+func (db *withdrawsDB) ApiWithdrawList(address string, page int, pageSize int, order string) (withdraws []Withdraws, total int64) {
+	var totalRecord int64
+	var withdrawList []Withdraws
+	queryStateRoot := db.gorm.Table("withdraws")
+	if address != "0x00" {
+		err := db.gorm.Table("withdraws").Select("block_number").Where("from_address = ?", address).Count(&totalRecord).Error
+		if err != nil {
+			log.Error("get withdraws list by address count fail")
+		}
+		queryStateRoot.Where(" from_address = ?", address).Offset((page - 1) * pageSize).Limit(pageSize)
+	} else {
+		err := db.gorm.Table("withdraws").Select("block_number").Count(&totalRecord).Error
+		if err != nil {
+			log.Error("get withdraws list by address count fail ")
+		}
+		queryStateRoot.Offset((page - 1) * pageSize).Limit(pageSize)
+	}
+	if strings.ToLower(order) == "asc" {
+		queryStateRoot.Order("timestamp asc")
+	} else {
+		queryStateRoot.Order("timestamp desc")
+	}
+	qErr := queryStateRoot.Find(&withdrawList).Error
+	if qErr != nil {
+		log.Error("get withdraws list fail", "err", qErr)
+	}
+	return withdrawList, totalRecord
+}
+
 func (db *withdrawsDB) QueryWithdrawsByHash(hash common.Hash) (*Withdraws, error) {
 	var withdrawsEntity Withdraws
 	result := db.gorm.Table("withdraws").Where("hash", hash.String()).Take(&withdrawsEntity)
@@ -52,6 +88,30 @@ func (db *withdrawsDB) QueryWithdrawsByHash(hash common.Hash) (*Withdraws, error
 		return nil, result.Error
 	}
 	return &withdrawsEntity, nil
+}
+
+func (db *withdrawsDB) SubmitWithdrawFromBusiness(fromAddress common.Address, toAddress common.Address, TokenAddress common.Address, amount *big.Int) error {
+	withdrawS := Withdraws{
+		GUID:             uuid.New(),
+		BlockHash:        common.Hash{},
+		BlockNumber:      big.NewInt(1),
+		Hash:             common.Hash{},
+		FromAddress:      fromAddress,
+		ToAddress:        toAddress,
+		TokenAddress:     TokenAddress,
+		Fee:              big.NewInt(1),
+		Amount:           amount,
+		Status:           0,
+		TransactionIndex: big.NewInt(1),
+		TxSignHex:        "",
+		Timestamp:        uint64(time.Now().Unix()),
+	}
+	errC := db.gorm.Create(withdrawS).Error
+	if errC != nil {
+		log.Error("create withdraw fail", "err", errC)
+		return errC
+	}
+	return nil
 }
 
 func (db *withdrawsDB) UpdateTransactionStatus(withdrawsList []Withdraws) error {
