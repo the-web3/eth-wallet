@@ -135,14 +135,15 @@ func (cc *CollectionCold) ToCold() error {
 				Value:     amount,
 				Data:      buildData,
 			}
-			rawTx, err := ethereum.OfflineSignTx(dFeeTx, hotAccount.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
+			rawTx, txHash, err := ethereum.OfflineSignTx(dFeeTx, hotAccount.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
 			if err != nil {
 				log.Error("offline transaction fail", "err", err)
 				return err
 			}
+
 			//  sendRawTx
 			log.Info("Offline sign tx success", "rawTx", rawTx)
-			hash, err := cc.client.SendRawTransaction(rawTx)
+			err = cc.client.SendRawTransaction(rawTx)
 			if err != nil {
 				log.Error("send raw transaction fail", "err", err)
 				return err
@@ -153,7 +154,7 @@ func (cc *CollectionCold) ToCold() error {
 				GUID:             guid,
 				BlockHash:        common.Hash{},
 				BlockNumber:      nil,
-				Hash:             hash,
+				Hash:             common.HexToHash(txHash),
 				FromAddress:      value.Address,
 				ToAddress:        coldWalletInfo.Address,
 				TokenAddress:     value.TokenAddress,
@@ -166,14 +167,20 @@ func (cc *CollectionCold) ToCold() error {
 			}
 			txList = append(txList, coldTx)
 		}
-
 	}
 
 	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
 	if _, err := retry.Do[interface{}](cc.resourceCtx, 10, retryStrategy, func() (interface{}, error) {
 		if err := cc.db.Transaction(func(tx *database.DB) error {
-			if err := tx.Transactions.StoreTransactions(txList, uint64(len(txList))); err != nil {
-				return err
+			if len(hotWalletBalancesList) > 0 {
+				if err := tx.Balances.UpdateBalances(hotWalletBalancesList); err != nil {
+					return err
+				}
+			}
+			if len(txList) > 0 {
+				if err := tx.Transactions.StoreTransactions(txList, uint64(len(txList))); err != nil {
+					return err
+				}
 			}
 			return nil
 		}); err != nil {
@@ -239,7 +246,7 @@ func (cc *CollectionCold) Collection() error {
 			Value:     amount,
 			Data:      buildData,
 		}
-		rawTx, err := ethereum.OfflineSignTx(dFeeTx, accountInfo.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
+		rawTx, txHash, err := ethereum.OfflineSignTx(dFeeTx, accountInfo.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
 		if err != nil {
 			log.Error("offline transaction fail", "err", err)
 			return err
@@ -247,7 +254,7 @@ func (cc *CollectionCold) Collection() error {
 		//  sendRawTx
 		log.Info("Offline sign tx success", "rawTx", rawTx)
 
-		hash, err := cc.client.SendRawTransaction(rawTx)
+		err = cc.client.SendRawTransaction(rawTx)
 		if err != nil {
 			log.Error("send raw transaction fail", "err", err)
 			return err
@@ -256,17 +263,17 @@ func (cc *CollectionCold) Collection() error {
 		collection := database.Transactions{
 			GUID:             guid,
 			BlockHash:        common.Hash{},
-			BlockNumber:      nil,
-			Hash:             hash,
+			BlockNumber:      big.NewInt(1),
+			Hash:             common.HexToHash(txHash),
 			FromAddress:      uncollect.Address,
 			ToAddress:        hotWalletInfo.Address,
 			TokenAddress:     uncollect.TokenAddress,
-			Fee:              big.NewInt(0),
+			Fee:              big.NewInt(1),
 			Amount:           uncollect.Balance,
 			Status:           0,
 			TxType:           2,
-			TransactionIndex: nil,
-			Timestamp:        1000,
+			TransactionIndex: big.NewInt(time.Now().Unix()),
+			Timestamp:        uint64(time.Now().Unix()),
 		}
 		txList = append(txList, collection)
 	}

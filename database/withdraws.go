@@ -44,7 +44,13 @@ type withdrawsDB struct {
 
 func (db *withdrawsDB) QueryWithdrawsByHash(hash common.Hash) (*Withdraws, error) {
 	var withdrawsEntity Withdraws
-	db.gorm.Table("withdraws").Where("hash", hash.String()).Take(&withdrawsEntity)
+	result := db.gorm.Table("withdraws").Where("hash", hash.String()).Take(&withdrawsEntity)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
 	return &withdrawsEntity, nil
 }
 

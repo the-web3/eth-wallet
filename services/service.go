@@ -1,11 +1,12 @@
 package services
 
 import (
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/the-web3/eth-wallet/proto/wallet"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"net"
+
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/the-web3/eth-wallet/proto/wallet"
 )
 
 func startRpcServer() {

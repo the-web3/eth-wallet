@@ -147,41 +147,42 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 			}
 
 			if len(depositList) > 0 {
+				log.Info("Store deposit transaction success", "totalTx", len(depositList))
 				if err := tx.Deposits.StoreDeposits(depositList, uint64(len(depositList))); err != nil {
 					return err
 				}
 			}
+			log.Info("batch latest block number", "batchLastBlockNumber", batchLastBlockNumber)
 
-			fmt.Println("batchLastBlockNumber", "batchLastBlockNumber", batchLastBlockNumber)
+			// 更新之前充值确认位
+			if err := tx.Deposits.UpdateDepositsStatus(batchLastBlockNumber - uint64(d.chainConf.Confirmations)); err != nil {
+				return err
+			}
 
-			//// 更新之前充值确认位
-			//if err := tx.Deposits.UpdateDepositsStatus(batchLastBlockNumber - uint64(d.chainConf.Confirmations)); err != nil {
-			//	return err
-			//}
-			//
-			//if len(withdrawList) > 0 {
-			//	if err := tx.Withdraws.UpdateTransactionStatus(withdrawList); err != nil {
-			//		return err
-			//	}
-			//}
-			//
-			//if len(depositTransactionList) > 0 {
-			//	if err := tx.Transactions.StoreTransactions(depositTransactionList, uint64(len(depositTransactionList))); err != nil {
-			//		return err
-			//	}
-			//}
-			//
-			//if len(outherTransactionList) > 0 { // 提现和归集
-			//	if err := tx.Transactions.UpdateTransactionStatus(outherTransactionList); err != nil {
-			//		return err
-			//	}
-			//}
-			//
-			//if len(tokenBalanceList) > 0 {
-			//	if err := tx.Balances.UpdateOrCreate(tokenBalanceList); err != nil {
-			//		return err
-			//	}
-			//}
+			if len(withdrawList) > 0 {
+				if err := tx.Withdraws.UpdateTransactionStatus(withdrawList); err != nil {
+					return err
+				}
+			}
+
+			if len(depositTransactionList) > 0 {
+				if err := tx.Transactions.StoreTransactions(depositTransactionList, uint64(len(depositTransactionList))); err != nil {
+					return err
+				}
+			}
+
+			if len(outherTransactionList) > 0 { // 提现和归集
+				if err := tx.Transactions.UpdateTransactionStatus(outherTransactionList); err != nil {
+					return err
+				}
+			}
+
+			if len(tokenBalanceList) > 0 {
+				log.Info("update or store token balance", "tokenBalanceList", len(tokenBalanceList))
+				if err := tx.Balances.UpdateOrCreate(tokenBalanceList); err != nil {
+					return err
+				}
+			}
 
 			return nil
 		}); err != nil {
@@ -302,7 +303,6 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 		var gasPrice *big.Int
 		var transactionFee *big.Int
 		if (adddressTo != nil && txReceipt.Status == 1) || (ccTx != nil && txReceipt.Status == 1) || (withdraw != nil && txReceipt.Status == 1) {
-			var txType uint8
 			if txReceipt.Type == types.DynamicFeeTxType {
 				gasPrice = txReceipt.EffectiveGasPrice
 				baseFeeInt, _ := strconv.ParseInt(baseFee, 10, 64)
@@ -312,6 +312,8 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 				gasPrice = txReceipt.EffectiveGasPrice
 				transactionFee = new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(txReceipt.GasUsed))
 			}
+
+			// 充值
 			if adddressTo != nil && txReceipt.Status == 1 {
 				log.Info("Find Deposit transaction", "TxHash", transaction.Hash().String())
 				deposit, err := d.HandleDeposit(transaction, txReceipt, transactionFee, isToken, decValue, fromAddress, toAddress, tokenAddress)
@@ -320,7 +322,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 					return nil, nil, nil, nil, nil, err
 				}
 				depositList = append(depositList, deposit)
-				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, txType, isToken, decValue, fromAddress, toAddress, tokenAddress)
+				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 0, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
 					return nil, nil, nil, nil, nil, err
@@ -329,6 +331,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 
+			// 提现
 			if withdraw != nil && txReceipt.Status == 1 {
 				log.Info("Find withdraw transaction", "TxHash", transaction.Hash().String())
 				withdrawItem, err := d.HandleWithdaw(transaction, txReceipt, transactionFee, isToken, decValue, fromAddress, toAddress, tokenAddress)
@@ -345,6 +348,8 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 				otherTransactionList = append(otherTransactionList, tx)
 				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
+
+			// 归集和转冷
 			if ccTx != nil && txReceipt.Status == 1 {
 				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 2, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {

@@ -50,14 +50,14 @@ func (ew *EthWallet) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//err = ew.withdraw.Start()
-	//if err != nil {
-	//	return err
-	//}
-	//err = ew.collectionCold.Start()
-	//if err != nil {
-	//	return err
-	//}
+	err = ew.withdraw.Start()
+	if err != nil {
+		return err
+	}
+	err = ew.collectionCold.Start()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -66,14 +66,14 @@ func (ew *EthWallet) Stop(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//err = ew.deposit.Close()
-	//if err != nil {
-	//	return err
-	//}
-	//err = ew.collectionCold.Close()
-	//if err != nil {
-	//	return err
-	//}
+	err = ew.deposit.Close()
+	if err != nil {
+		return err
+	}
+	err = ew.collectionCold.Close()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

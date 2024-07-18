@@ -11,7 +11,7 @@ import (
 
 func TestOfflineSignTx(t *testing.T) {
 	privateKeyHex := "0cbb2ff952da876c4779200c83f6b90d73ea85a8da82e06c2276a11499922720"
-	nonce := uint64(51)
+	nonce := uint64(56)
 	toAddress := common.HexToAddress("0x35096AD62E57e86032a3Bb35aDaCF2240d55421D")
 	amount := big.NewInt(10000000000000000)
 	gasLimit := uint64(21000)
@@ -28,6 +28,6 @@ func TestOfflineSignTx(t *testing.T) {
 		Value:     amount,
 		Data:      nil,
 	}
-	txHex, _ := OfflineSignTx(dFeeTx, privateKeyHex, chainID)
-	fmt.Println("txHex===", txHex)
+	txHex, txHash, _ := OfflineSignTx(dFeeTx, privateKeyHex, chainID)
+	fmt.Println("txHex===", txHex, "txHash==", txHash)
 }

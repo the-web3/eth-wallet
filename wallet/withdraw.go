@@ -77,7 +77,7 @@ func (w *Withdraw) Start() error {
 					return err
 				}
 
-				hotWalletTokenBalance, err := w.db.Balances.QueryHotWalletBalance(hotWallet.Address, withdraw.TokenAddress)
+				hotWalletTokenBalance, err := w.db.Balances.QueryWalletBalanceByTokenAndAddress(hotWallet.Address, withdraw.TokenAddress)
 				if hotWalletTokenBalance.Balance.Cmp(withdraw.Amount) < 0 {
 					log.Info("hot wallet balance is not enough", "tokenAddress", withdraw.TokenAddress)
 					continue
@@ -113,7 +113,7 @@ func (w *Withdraw) Start() error {
 					Value:     amount,
 					Data:      buildData,
 				}
-				rawTx, err := ethereum.OfflineSignTx(dFeeTx, hotWallet.PrivateKey, big.NewInt(int64(w.chainConf.ChainID)))
+				rawTx, txHash, err := ethereum.OfflineSignTx(dFeeTx, hotWallet.PrivateKey, big.NewInt(int64(w.chainConf.ChainID)))
 				if err != nil {
 					log.Error("offline transaction fail", "err", err)
 					return err
@@ -121,12 +121,12 @@ func (w *Withdraw) Start() error {
 				log.Info("Offline sign tx success", "rawTx", rawTx)
 
 				// sendRawTx
-				hash, err := w.client.SendRawTransaction(rawTx)
+				err = w.client.SendRawTransaction(rawTx)
 				if err != nil {
 					log.Error("send raw transaction fail", "err", err)
 					return err
 				}
-				returnWithdrawsList[index].Hash = hash
+				returnWithdrawsList[index].Hash = common.HexToHash(txHash)
 				returnWithdrawsList[index].GUID = withdraw.GUID
 				index++
 			}

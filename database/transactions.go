@@ -44,7 +44,13 @@ type transactionsDB struct {
 
 func (db *transactionsDB) QueryTransactionByHash(hash common.Hash) (*Transactions, error) {
 	var transactionEntry Transactions
-	db.gorm.Table("transactions").Where("hash", hash.String()).Take(&transactionEntry)
+	result := db.gorm.Table("transactions").Where("hash", hash.String()).Take(&transactionEntry)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
 	return &transactionEntry, nil
 }
 

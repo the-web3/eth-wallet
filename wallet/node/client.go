@@ -51,7 +51,7 @@ type EthClient interface {
 
 	TxCountByAddress(common.Address) (hexutil.Uint64, error)
 
-	SendRawTransaction(rawTx string) (common.Hash, error)
+	SendRawTransaction(rawTx string) error
 
 	SuggestGasPrice() (*big.Int, error)
 	SuggestGasTipCap() (*big.Int, error)
@@ -185,14 +185,14 @@ func (c *clnt) SuggestGasTipCap() (*big.Int, error) {
 	return (*big.Int)(&hex), nil
 }
 
-func (c *clnt) SendRawTransaction(rawTx string) (common.Hash, error) {
+func (c *clnt) SendRawTransaction(rawTx string) error {
 	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
 	defer cancel()
-	var txHash string
-	if err := c.rpc.CallContext(ctxwt, txHash, "eth_sendRawTransaction", rawTx); err != nil {
-		return common.Hash{}, err
+	if err := c.rpc.CallContext(ctxwt, nil, "eth_sendRawTransaction", rawTx); err != nil {
+		return err
 	}
-	return common.HexToHash(txHash), nil
+	log.Info("send tx to ethereum success")
+	return nil
 }
 
 func (c *clnt) BlockHeaderByNumber(number *big.Int) (*types.Header, error) {
