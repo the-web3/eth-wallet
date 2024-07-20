@@ -18,13 +18,14 @@ type Balances struct {
 	TokenAddress common.Address `json:"token_address" gorm:"serializer:bytes"`
 	AddressType  uint8          `json:"address_type"` //0:用户地址；1:热钱包地址(归集地址)；2:冷钱包地址
 	Balance      *big.Int       `gorm:"serializer:u256;column:balance" db:"balance" json:"Balance" form:"balance"`
+	LockBalance  *big.Int       `gorm:"serializer:u256;column:lock_balance" db:"lock_balance" json:"LockBalance" form:"lock_balance"`
 	Timestamp    uint64
 }
 
 type BalancesView interface {
 	QueryWalletBalanceByTokenAndAddress(address, tokenAddress common.Address) (*Balances, error)
-	UnCollectionList(decimal uint64) ([]Balances, error)
-	QueryHotWalletBalances() ([]Balances, error)
+	UnCollectionList(amount *big.Int) ([]Balances, error)
+	QueryHotWalletBalances(amount *big.Int) ([]Balances, error)
 	QueryBalancesByToAddress(address *common.Address) (*Balances, error)
 }
 
@@ -32,8 +33,8 @@ type BalancesDB interface {
 	BalancesView
 
 	UpdateOrCreate([]TokenBalance) error
-
-	UpdateBalances([]Balances) error
+	StoreBalances([]Balances, uint64) error
+	UpdateBalances([]Balances, bool) error
 }
 
 type balancesDB struct {
@@ -44,7 +45,12 @@ func NewBalancesDB(db *gorm.DB) BalancesDB {
 	return &balancesDB{gorm: db}
 }
 
-func (db *balancesDB) UpdateBalances(balanceList []Balances) error {
+func (db *balancesDB) StoreBalances(balanceList []Balances, balanceListLength uint64) error {
+	result := db.gorm.CreateInBatches(&balanceList, int(balanceListLength))
+	return result.Error
+}
+
+func (db *balancesDB) UpdateBalances(balanceList []Balances, isCollection bool) error {
 	for i := 0; i < len(balanceList); i++ {
 		var balance = Balances{}
 		result := db.gorm.Where(&Balances{Address: balanceList[i].Address, TokenAddress: balanceList[i].TokenAddress}).Take(&balance)
@@ -54,7 +60,13 @@ func (db *balancesDB) UpdateBalances(balanceList []Balances) error {
 			}
 			return result.Error
 		}
-		balance.Balance = big.NewInt(0)
+		if isCollection {
+			balance.LockBalance = balance.Balance
+			balance.Balance = big.NewInt(0)
+		} else {
+			balance.Balance = new(big.Int).Sub(balance.Balance, balanceList[i].LockBalance)
+			balance.LockBalance = balanceList[i].LockBalance
+		}
 		err := db.gorm.Save(&balance).Error
 		if err != nil {
 			return err
@@ -75,9 +87,9 @@ func (db *balancesDB) QueryBalancesByToAddress(address *common.Address) (*Balanc
 	return &balanceEntry, nil
 }
 
-func (db *balancesDB) QueryHotWalletBalances() ([]Balances, error) {
+func (db *balancesDB) QueryHotWalletBalances(amount *big.Int) ([]Balances, error) {
 	var balanceList []Balances
-	err := db.gorm.Table("balances").Where("address_type = ?", 1).Find(&balanceList).Error
+	err := db.gorm.Table("balances").Where("address_type = ? and balance >=?", 1, amount.Uint64()).Find(&balanceList).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -87,9 +99,9 @@ func (db *balancesDB) QueryHotWalletBalances() ([]Balances, error) {
 	return balanceList, nil
 }
 
-func (db *balancesDB) UnCollectionList(decimal uint64) ([]Balances, error) {
+func (db *balancesDB) UnCollectionList(amount *big.Int) ([]Balances, error) {
 	var balanceList []Balances
-	err := db.gorm.Table("balances").Where("balance >=?", 10^decimal).Find(&balanceList).Error
+	err := db.gorm.Table("balances").Where("balance >=?", amount.Uint64()).Find(&balanceList).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -112,7 +124,7 @@ func (db *balancesDB) QueryWalletBalanceByTokenAndAddress(address, tokenAddress 
 }
 
 func (db *balancesDB) UpdateOrCreate(balanceList []TokenBalance) error {
-	hotWalletBalances, err := db.QueryHotWalletBalances()
+	hotWalletBalances, err := db.QueryHotWalletBalances(big.NewInt(0))
 	if err != nil {
 		log.Error("query hot wallet balances err", "err", err)
 		return err
@@ -151,6 +163,7 @@ func (db *balancesDB) UpdateOrCreate(balanceList []TokenBalance) error {
 				if errU != nil {
 					return errU
 				}
+				// todo: 把热钱包锁定的资金清 0
 			} else if value.TxType == 2 {
 				if len(hotWalletBalances) > 0 {
 					for _, hotWallet := range hotWalletBalances {

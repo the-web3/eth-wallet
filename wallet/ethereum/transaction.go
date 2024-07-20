@@ -66,5 +66,5 @@ func OfflineSignTx(txData *types.DynamicFeeTx, privateKey string, chainId *big.I
 		return "", "", err
 	}
 
-	return "0x" + hex.EncodeToString(signedTxData)[4:], tx.Hash().String(), nil
+	return "0x" + hex.EncodeToString(signedTxData), signedTx.Hash().String(), nil
 }

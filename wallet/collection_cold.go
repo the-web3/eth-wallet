@@ -21,6 +21,11 @@ import (
 	"github.com/the-web3/eth-wallet/wallet/retry"
 )
 
+var (
+	CollectionFunding = big.NewInt(10000000000000000)
+	ColdFunding       = big.NewInt(2000000000000000000)
+)
+
 type CollectionCold struct {
 	db             *database.DB
 	chainConf      *config.ChainConfig
@@ -82,98 +87,98 @@ func (cc *CollectionCold) Start() error {
 }
 
 func (cc *CollectionCold) ToCold() error {
-	hotWalletBalancesList, err := cc.db.Balances.QueryHotWalletBalances()
+	hotWalletBalancesList, err := cc.db.Balances.QueryHotWalletBalances(ColdFunding)
 	if err != nil {
 		log.Error("to cold query hot wallet info fail", "err", err)
 		return err
 	}
 	var txList []database.Transactions
-
+	balanceForStore := make([]database.Balances, len(hotWalletBalancesList))
 	for _, value := range hotWalletBalancesList {
-
-		if value.Balance.Cmp(big.NewInt(10^18)) >= 0 {
-			coldWalletInfo, err := cc.db.Addresses.QueryColdWalletInfo()
-			if err != nil {
-				log.Error("query cold wallet info err", "err", err)
-				return err
-			}
-
-			// nonce
-			nonce, err := cc.client.TxCountByAddress(value.Address)
-			if err != nil {
-				log.Error("query nonce by address fail", "err", err)
-				return err
-			}
-
-			hotAccount, err := cc.db.Addresses.QueryAddressesByToAddress(&value.Address)
-			if err != nil {
-				log.Error("query account info by address fail", "err", err)
-				return err
-			}
-
-			var buildData []byte
-			var gasLimit uint64
-			var toAddress *common.Address
-			var amount *big.Int
-			if value.TokenAddress.Hex() != "0x00" {
-				buildData = ethereum.BuildErc20Data(coldWalletInfo.Address, value.Balance)
-				toAddress = &value.TokenAddress
-				gasLimit = TokenGasLimit
-				amount = big.NewInt(0)
-			} else {
-				toAddress = &coldWalletInfo.Address
-				gasLimit = EthGasLimit
-				amount = value.Balance
-			}
-			dFeeTx := &types.DynamicFeeTx{
-				ChainID:   big.NewInt(int64(cc.chainConf.ChainID)),
-				Nonce:     uint64(nonce),
-				GasTipCap: maxPriorityFeePerGas,
-				GasFeeCap: maxFeePerGas,
-				Gas:       gasLimit,
-				To:        toAddress,
-				Value:     amount,
-				Data:      buildData,
-			}
-			rawTx, txHash, err := ethereum.OfflineSignTx(dFeeTx, hotAccount.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
-			if err != nil {
-				log.Error("offline transaction fail", "err", err)
-				return err
-			}
-
-			//  sendRawTx
-			log.Info("Offline sign tx success", "rawTx", rawTx)
-			err = cc.client.SendRawTransaction(rawTx)
-			if err != nil {
-				log.Error("send raw transaction fail", "err", err)
-				return err
-			}
-
-			guid, _ := uuid.NewUUID()
-			coldTx := database.Transactions{
-				GUID:             guid,
-				BlockHash:        common.Hash{},
-				BlockNumber:      nil,
-				Hash:             common.HexToHash(txHash),
-				FromAddress:      value.Address,
-				ToAddress:        coldWalletInfo.Address,
-				TokenAddress:     value.TokenAddress,
-				Fee:              big.NewInt(0),
-				Amount:           value.Balance,
-				Status:           0,
-				TxType:           2,
-				TransactionIndex: nil,
-				Timestamp:        uint64(time.Time{}.Unix()),
-			}
-			txList = append(txList, coldTx)
+		index := 0
+		coldWalletInfo, err := cc.db.Addresses.QueryColdWalletInfo()
+		if err != nil {
+			log.Error("query cold wallet info err", "err", err)
+			return err
 		}
-	}
 
+		// nonce
+		nonce, err := cc.client.TxCountByAddress(value.Address)
+		if err != nil {
+			log.Error("query nonce by address fail", "err", err)
+			return err
+		}
+
+		hotAccount, err := cc.db.Addresses.QueryAddressesByToAddress(&value.Address)
+		if err != nil {
+			log.Error("query account info by address fail", "err", err)
+			return err
+		}
+
+		var buildData []byte
+		var gasLimit uint64
+		var toAddress *common.Address
+		var amount *big.Int
+		if value.TokenAddress.Hex() != "0x00" {
+			buildData = ethereum.BuildErc20Data(coldWalletInfo.Address, value.Balance)
+			toAddress = &value.TokenAddress
+			gasLimit = TokenGasLimit
+			amount = big.NewInt(0)
+		} else {
+			toAddress = &coldWalletInfo.Address
+			gasLimit = EthGasLimit
+			amount = value.Balance
+		}
+		dFeeTx := &types.DynamicFeeTx{
+			ChainID:   big.NewInt(int64(cc.chainConf.ChainID)),
+			Nonce:     uint64(nonce),
+			GasTipCap: maxPriorityFeePerGas,
+			GasFeeCap: maxFeePerGas,
+			Gas:       gasLimit,
+			To:        toAddress,
+			Value:     amount,
+			Data:      buildData,
+		}
+		rawTx, txHash, err := ethereum.OfflineSignTx(dFeeTx, hotAccount.PrivateKey, big.NewInt(int64(cc.chainConf.ChainID)))
+		if err != nil {
+			log.Error("offline transaction fail", "err", err)
+			return err
+		}
+
+		//  sendRawTx
+		log.Info("Offline sign tx success", "rawTx", rawTx)
+		err = cc.client.SendRawTransaction(rawTx)
+		if err != nil {
+			log.Error("send raw transaction fail", "err", err)
+			return err
+		}
+
+		guid, _ := uuid.NewUUID()
+		coldTx := database.Transactions{
+			GUID:             guid,
+			BlockHash:        common.Hash{},
+			BlockNumber:      nil,
+			Hash:             common.HexToHash(txHash),
+			FromAddress:      value.Address,
+			ToAddress:        coldWalletInfo.Address,
+			TokenAddress:     value.TokenAddress,
+			Fee:              big.NewInt(0),
+			Amount:           value.Balance,
+			Status:           0,
+			TxType:           2,
+			TransactionIndex: nil,
+			Timestamp:        uint64(time.Time{}.Unix()),
+		}
+		txList = append(txList, coldTx)
+		balanceForStore[index].LockBalance = new(big.Int).Sub(balanceForStore[index].Balance, ColdFunding)
+		balanceForStore[index].Address = value.Address
+		balanceForStore[index].TokenAddress = value.TokenAddress
+	}
 	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
 	if _, err := retry.Do[interface{}](cc.resourceCtx, 10, retryStrategy, func() (interface{}, error) {
 		if err := cc.db.Transaction(func(tx *database.DB) error {
 			if len(hotWalletBalancesList) > 0 {
-				if err := tx.Balances.UpdateBalances(hotWalletBalancesList); err != nil {
+				if err := tx.Balances.UpdateBalances(balanceForStore, false); err != nil {
 					return err
 				}
 			}
@@ -194,8 +199,9 @@ func (cc *CollectionCold) ToCold() error {
 	return nil
 }
 
+// Collection 归集
 func (cc *CollectionCold) Collection() error {
-	uncollectionList, err := cc.db.Balances.UnCollectionList(18)
+	unCollectionList, err := cc.db.Balances.UnCollectionList(CollectionFunding)
 	if err != nil {
 		log.Error("query uncollection fail", "err", err)
 		return err
@@ -208,7 +214,7 @@ func (cc *CollectionCold) Collection() error {
 	}
 
 	var txList []database.Transactions
-	for _, uncollect := range uncollectionList {
+	for _, uncollect := range unCollectionList {
 		accountInfo, err := cc.db.Addresses.QueryAddressesByToAddress(&uncollect.Address)
 		if err != nil {
 			log.Error("query account info fail", "err", err)
@@ -280,9 +286,16 @@ func (cc *CollectionCold) Collection() error {
 	retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
 	if _, err := retry.Do[interface{}](cc.resourceCtx, 10, retryStrategy, func() (interface{}, error) {
 		if err := cc.db.Transaction(func(tx *database.DB) error {
+			if len(unCollectionList) > 0 {
+				if err := tx.Balances.UpdateBalances(unCollectionList, true); err != nil {
+					return err
+				}
+			}
+
 			if err := tx.Transactions.StoreTransactions(txList, uint64(len(txList))); err != nil {
 				return err
 			}
+
 			return nil
 		}); err != nil {
 			log.Error("unable to persist batch", "err", err)

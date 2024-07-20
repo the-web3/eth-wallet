@@ -3,6 +3,7 @@ package database
 import (
 	"errors"
 	"gorm.io/gorm"
+	"math/big"
 
 	"github.com/google/uuid"
 
@@ -11,11 +12,12 @@ import (
 )
 
 type Tokens struct {
-	GUID         uuid.UUID      `gorm:"primaryKey" json:"guid"`
-	TokenAddress common.Address `json:"token_address" gorm:"serializer:bytes"`
-	Uint         uint8          `json:"uint"`
-	TokenName    string         `json:"tokens_name"`
-	Timestamp    uint64
+	GUID          uuid.UUID      `gorm:"primaryKey" json:"guid"`
+	TokenAddress  common.Address `json:"token_address" gorm:"serializer:bytes"`
+	Uint          uint8          `json:"uint"`
+	TokenName     string         `json:"tokens_name"`
+	CollectAmount *big.Int       `gorm:"serializer:u256;column:collect_amount" db:"collect_amount" json:"CollectAmount" form:"collect_amount"`
+	Timestamp     uint64
 }
 
 type TokensView interface {

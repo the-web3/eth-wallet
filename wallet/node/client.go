@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	retry2 "github.com/the-web3/eth-wallet/wallet/retry"
 	"math/big"
 	"net"
 	"net/url"
@@ -19,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/the-web3/eth-wallet/common/global_const"
+	retry2 "github.com/the-web3/eth-wallet/wallet/retry"
 )
 
 const (
@@ -27,10 +27,15 @@ const (
 	defaultRequestTimeout = 10 * time.Second
 )
 
+type TransactionList struct {
+	To   string `json:"to"`
+	Hash string `json:"hash"`
+}
+
 type RpcBlock struct {
-	Hash         common.Hash `json:"hash"`
-	Transactions []string    `json:"transactions"`
-	BaseFee      string      `json:"baseFeePerGas"`
+	Hash         common.Hash       `json:"hash"`
+	Transactions []TransactionList `json:"transactions"`
+	BaseFee      string            `json:"baseFeePerGas"`
 }
 
 type EthClient interface {
@@ -141,7 +146,7 @@ func (c *clnt) BlockByNumber(number *big.Int) (*RpcBlock, error) {
 	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
 	defer cancel()
 	var block *RpcBlock
-	err := c.rpc.CallContext(ctxwt, &block, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	err := c.rpc.CallContext(ctxwt, &block, "eth_getBlockByNumber", toBlockNumArg(number), true)
 	if err != nil {
 		log.Error("Call eth_getBlockByNumber method fail", "err", err)
 		return nil, err

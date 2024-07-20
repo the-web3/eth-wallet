@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tokens (
     token_address VARCHAR NOT NULL,
     unit SMALLINT NOT NULL DEFAULT 18,
     token_name VARCHAR NOT NULL,
+    collect_amount  UINT256 NOT NULL CHECK(collect_amount>0),
     timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
  );
 CREATE INDEX IF NOT EXISTS tokens_timestamp ON tokens(timestamp);
@@ -52,7 +53,8 @@ CREATE TABLE IF NOT EXISTS balances (
      address  VARCHAR NOT NULL,
      address_type SMALLINT NOT NULL DEFAULT 0,
      token_address VARCHAR NOT NULL,
-     balance  UINT256 NOT NULL CHECK(balance>0),
+     balance  UINT256 NOT NULL CHECK(balance>=0),
+     lock_balance  UINT256 NOT NULL,
      timestamp INTEGER NOT NULL UNIQUE CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS balances_address ON balances(address);

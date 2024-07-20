@@ -196,7 +196,7 @@ func (d *Deposit) processBatch(headers []types.Header) error {
 	return nil
 }
 
-func (d *Deposit) processTransactions(txList []string, baseFee string) ([]database.Deposits, []database.Withdraws, []database.Transactions, []database.Transactions, []database.TokenBalance, error) {
+func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee string) ([]database.Deposits, []database.Withdraws, []database.Transactions, []database.Transactions, []database.TokenBalance, error) {
 	if len(txList) == 0 {
 		log.Error("no transactions")
 		return nil, nil, nil, nil, nil, errors.New("no transactions")
@@ -206,7 +206,25 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 	var depositTransactionList []database.Transactions
 	var otherTransactionList []database.Transactions
 	var tokenBalanceList []database.TokenBalance
-	for _, txHash := range txList {
+	for _, tx := range txList {
+		txHash := tx.Hash
+		var isToken bool
+		tokens, err := d.db.Tokens.TokensInfoByAddress(tx.To)
+		if err != nil {
+			log.Error("query token info fail", "err", err)
+			continue
+		}
+		log.Info("=query token by address success=", "tokens", tokens)
+		txTo := common.HexToAddress(tx.To)
+		addrTo, err := d.db.Addresses.QueryAddressesByToAddress(&txTo)
+		if err != nil {
+			log.Error("query address info fail", "err", err)
+			continue
+		}
+		if tokens == nil && addrTo == nil {
+			continue
+		}
+
 		transaction, err := d.client.TxByHash(common.HexToHash(txHash))
 		if err != nil {
 			log.Error("get tx fail", err)
@@ -224,17 +242,10 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 			continue
 		}
 
-		var isToken bool
 		var toAddress common.Address
 		var tokenAddress common.Address
 		var decValue *big.Int
 		// 当 to 地址为 token 地址的时候，这种交易为 token 充值，如果 to 地址不是合约地址就是 ETH 充值
-		tokens, err := d.db.Tokens.TokensInfoByAddress(transaction.To().String())
-		if err != nil {
-			log.Error("query token info fail", "err", err)
-			continue
-		}
-		log.Info("=query token by address success=", "tokens", tokens)
 
 		if tokens != nil {
 			isToken = true
@@ -265,7 +276,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 			decValue = transaction.Value()
 		}
 
-		adddressTo, err := d.db.Addresses.QueryAddressesByToAddress(&toAddress)
+		addressTo, err := d.db.Addresses.QueryAddressesByToAddress(&toAddress)
 		if err != nil {
 			log.Error("query to address from addresses table fail", "err", err)
 		}
@@ -273,7 +284,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 		if err != nil {
 			log.Error("query from address from addresses table fail", "err", err)
 		}
-		if adddressTo == nil && addressFrom == nil {
+		if addressTo == nil && addressFrom == nil {
 			log.Info("no transaction relate to wallet")
 			continue
 		}
@@ -302,7 +313,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 		}
 		var gasPrice *big.Int
 		var transactionFee *big.Int
-		if (adddressTo != nil && txReceipt.Status == 1) || (ccTx != nil && txReceipt.Status == 1) || (withdraw != nil && txReceipt.Status == 1) {
+		if (addressTo != nil && txReceipt.Status == 1) || (ccTx != nil && txReceipt.Status == 1) || (withdraw != nil && txReceipt.Status == 1) {
 			if txReceipt.Type == types.DynamicFeeTxType {
 				gasPrice = txReceipt.EffectiveGasPrice
 				baseFeeInt, _ := strconv.ParseInt(baseFee, 10, 64)
@@ -314,7 +325,7 @@ func (d *Deposit) processTransactions(txList []string, baseFee string) ([]databa
 			}
 
 			// 充值
-			if adddressTo != nil && txReceipt.Status == 1 {
+			if addressTo != nil && txReceipt.Status == 1 {
 				log.Info("Find Deposit transaction", "TxHash", transaction.Hash().String())
 				deposit, err := d.HandleDeposit(transaction, txReceipt, transactionFee, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {

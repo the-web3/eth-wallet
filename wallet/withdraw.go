@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/the-web3/eth-wallet/wallet/retry"
 	"math/big"
 	"time"
 
@@ -68,8 +69,9 @@ func (w *Withdraw) Start() error {
 				return err
 			}
 
-			var returnWithdrawsList []database.Withdraws
+			returnWithdrawsList := make([]database.Withdraws, len(withdrawList))
 			index := 0
+			var balanceList []database.Balances
 			for _, withdraw := range withdrawList {
 				hotWallet, err := w.db.Addresses.QueryHotWalletInfo()
 				if err != nil {
@@ -128,12 +130,37 @@ func (w *Withdraw) Start() error {
 				}
 				returnWithdrawsList[index].Hash = common.HexToHash(txHash)
 				returnWithdrawsList[index].GUID = withdraw.GUID
+				balanceItem := database.Balances{
+					Address:      hotWallet.Address,
+					TokenAddress: withdraw.TokenAddress,
+					LockBalance:  withdraw.Amount,
+				}
+				balanceList = append(balanceList, balanceItem)
 				index++
 			}
 
-			err = w.db.Withdraws.MarkWithdrawsToSend(returnWithdrawsList)
-			if err != nil {
-				log.Error("mark withdraw send fail", "err", err)
+			retryStrategy := &retry.ExponentialStrategy{Min: 1000, Max: 20_000, MaxJitter: 250}
+			if _, err := retry.Do[interface{}](w.resourceCtx, 10, retryStrategy, func() (interface{}, error) {
+				if err := w.db.Transaction(func(tx *database.DB) error {
+					// 将转出去的热钱包余额锁定
+					err = w.db.Balances.UpdateBalances(balanceList, false)
+					if err != nil {
+						log.Error("mark withdraw send fail", "err", err)
+						return err
+					}
+
+					err = w.db.Withdraws.MarkWithdrawsToSend(returnWithdrawsList)
+					if err != nil {
+						log.Error("mark withdraw send fail", "err", err)
+						return err
+					}
+					return nil
+				}); err != nil {
+					log.Error("unable to persist batch", "err", err)
+					return nil, err
+				}
+				return nil, nil
+			}); err != nil {
 				return err
 			}
 		}
