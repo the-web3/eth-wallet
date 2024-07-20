@@ -95,7 +95,7 @@ func (w *Withdraw) Start() error {
 				var gasLimit uint64
 				var toAddress *common.Address
 				var amount *big.Int
-				if withdraw.ToAddress.Hex() != "0x00" {
+				if withdraw.TokenAddress.Hex() != "0x0000000000000000000000000000000000000000" {
 					buildData = ethereum.BuildErc20Data(withdraw.ToAddress, withdraw.Amount)
 					toAddress = &withdraw.TokenAddress
 					gasLimit = TokenGasLimit

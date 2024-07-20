@@ -139,6 +139,7 @@ func (db *balancesDB) UpdateOrCreate(balanceList []TokenBalance) error {
 				TokenAddress: value.TokenAddress,
 				AddressType:  value.TxType,
 				Balance:      value.Balance,
+				LockBalance:  value.LockBalance,
 				Timestamp:    uint64(time.Now().Unix()),
 			}
 			errC := db.gorm.Create(balanceValue).Error
@@ -156,19 +157,21 @@ func (db *balancesDB) UpdateOrCreate(balanceList []TokenBalance) error {
 				if errU != nil {
 					return errU
 				}
-			} else if value.TxType == 1 {
-				userBalanceEntry.Balance = new(big.Int).Sub(userBalanceEntry.Balance, value.Balance)
-				log.Info("Withdraw balance update", "TxType", value.TxType, "balance", value.Balance, "afterBalance", userBalanceEntry.Balance)
-				errU := db.gorm.Save(&userBalanceEntry).Error
-				if errU != nil {
-					return errU
+			} else if value.TxType == 1 { // 提现
+				for _, hotWallet := range hotWalletBalances {
+					if hotWallet.Address == value.Address && hotWallet.TokenAddress == value.TokenAddress {
+						hotWallet.LockBalance = big.NewInt(0)
+						errU := db.gorm.Save(&hotWallet).Error
+						if errU != nil {
+							return errU
+						}
+					}
 				}
-				// todo: 把热钱包锁定的资金清 0
-			} else if value.TxType == 2 {
+			} else if value.TxType == 2 { // 归集
 				if len(hotWalletBalances) > 0 {
 					for _, hotWallet := range hotWalletBalances {
 						if hotWallet.Address == value.Address && hotWallet.TokenAddress == value.TokenAddress {
-							userBalanceEntry.Balance = new(big.Int).Sub(userBalanceEntry.Balance, value.Balance)
+							userBalanceEntry.LockBalance = big.NewInt(0)
 							errU := db.gorm.Save(&userBalanceEntry).Error
 							if errU != nil {
 								return errU
@@ -184,7 +187,7 @@ func (db *balancesDB) UpdateOrCreate(balanceList []TokenBalance) error {
 			} else if value.TxType == 3 {
 				if len(hotWalletBalances) > 0 {
 					for _, hotWallet := range hotWalletBalances {
-						hotWallet.Balance = new(big.Int).Add(hotWallet.Balance, value.Balance)
+						hotWallet.LockBalance = big.NewInt(0)
 						err := db.gorm.Save(&hotWallet).Error
 						if err != nil {
 							return err

@@ -74,11 +74,11 @@ func (cc *CollectionCold) Start() error {
 
 	cc.tasks.Go(func() error {
 		for range tickerCollectionColdWorker.C {
-			err := cc.ToCold()
-			if err != nil {
-				log.Error("to cold fail", "err", err)
-				return err
-			}
+			//err := cc.ToCold()
+			//if err != nil {
+			//	log.Error("to cold fail", "err", err)
+			//	return err
+			//}
 		}
 		return nil
 	})
@@ -232,15 +232,17 @@ func (cc *CollectionCold) Collection() error {
 		var gasLimit uint64
 		var toAddress *common.Address
 		var amount *big.Int
-		if uncollect.TokenAddress.Hex() != "0x00" {
+		if uncollect.TokenAddress.Hex() != "0x0000000000000000000000000000000000000000" {
 			buildData = ethereum.BuildErc20Data(hotWalletInfo.Address, uncollect.Balance)
 			toAddress = &uncollect.TokenAddress
 			gasLimit = TokenGasLimit
 			amount = big.NewInt(0)
 		} else {
+			fee := big.NewInt(1000000000000000)
+			colllectAmount := new(big.Int).Sub(uncollect.Balance, fee)
 			toAddress = &hotWalletInfo.Address
 			gasLimit = EthGasLimit
-			amount = uncollect.Balance
+			amount = colllectAmount
 		}
 		dFeeTx := &types.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cc.chainConf.ChainID)),
@@ -258,7 +260,7 @@ func (cc *CollectionCold) Collection() error {
 			return err
 		}
 		//  sendRawTx
-		log.Info("Offline sign tx success", "rawTx", rawTx)
+		log.Info("Offline sign tx success", "rawTx", rawTx, "fromAddress", accountInfo.Address, "balance", uncollect.Balance, "amount", amount)
 
 		err = cc.client.SendRawTransaction(rawTx)
 		if err != nil {

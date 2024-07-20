@@ -324,8 +324,8 @@ func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee str
 				transactionFee = new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(txReceipt.GasUsed))
 			}
 
-			// 充值
-			if addressTo != nil && txReceipt.Status == 1 {
+			// 充值：to 是系统用户地址， from 地址是外部地址
+			if addressTo != nil && txReceipt.Status == 1 && addressFrom == nil {
 				log.Info("Find Deposit transaction", "TxHash", transaction.Hash().String())
 				deposit, err := d.HandleDeposit(transaction, txReceipt, transactionFee, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {
@@ -342,8 +342,8 @@ func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee str
 				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 
-			// 提现
-			if withdraw != nil && txReceipt.Status == 1 {
+			// 提现：from 地址系统的热钱包地址，to 地址是外部地址
+			if withdraw != nil && txReceipt.Status == 1 && addressFrom != nil && addressTo == nil {
 				log.Info("Find withdraw transaction", "TxHash", transaction.Hash().String())
 				withdrawItem, err := d.HandleWithdaw(transaction, txReceipt, transactionFee, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {
@@ -360,8 +360,9 @@ func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee str
 				tokenBalanceList = append(tokenBalanceList, tokenBalance)
 			}
 
-			// 归集和转冷
-			if ccTx != nil && txReceipt.Status == 1 {
+			// 归集：to 地址是系统热钱包地址， from 地址系统用户
+			// 热转冷：from 是系统的热钱包地址，to 地址是系统的冷钱包地址
+			if ccTx != nil && txReceipt.Status == 1 && addressFrom != nil && addressTo != nil {
 				tx, tokenBalance, err := d.HandleTransaction(transaction, txReceipt, transactionFee, 2, isToken, decValue, fromAddress, toAddress, tokenAddress)
 				if err != nil {
 					log.Error("handle deposit error", "err", err)
@@ -472,6 +473,7 @@ func (d *Deposit) HandleTransaction(transaction *types.Transaction, receipt *typ
 		Address:      toAddr,
 		TokenAddress: tokenAddress,
 		Balance:      transaction.Value(),
+		LockBalance:  big.NewInt(0),
 		TxType:       txtype,
 	}
 	return tx, balance, nil
