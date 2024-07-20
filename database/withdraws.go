@@ -102,7 +102,7 @@ func (db *withdrawsDB) SubmitWithdrawFromBusiness(fromAddress common.Address, to
 		Fee:              big.NewInt(1),
 		Amount:           amount,
 		Status:           0,
-		TransactionIndex: big.NewInt(1),
+		TransactionIndex: big.NewInt(time.Now().Unix()),
 		TxSignHex:        "",
 		Timestamp:        uint64(time.Now().Unix()),
 	}

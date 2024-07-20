@@ -7,10 +7,12 @@ package services.thewebthree.wallet;
 // 交易所或者中心化钱包业务层对接接口
 message WithdrawReq {
   string consumer_token = 1;
-  string chain_id = 2;
-  string from_address = 3;
-  string to_address = 4;
-  string amount = 5;
+  string request_id = 2;
+  string chain_id = 3;
+  string from_address = 4;
+  string to_address = 5;
+  string token_address = 6;
+  string amount = 7;
 }
 
 message WithdrawRep {

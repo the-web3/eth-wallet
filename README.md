@@ -152,6 +152,158 @@ INFO [07-20|16:26:53.471] start deposit......
 INFO [07-20|16:26:53.472] start withdraw......
 ```
 
+## Change Rpc Protobuf
+
+if change wallet.proto code, you should execute proto.sh compile it to golang language.
+
+```
+./proto.sh
+```
+
+## API
+
+### 1.Http api
+
+#### 1.1. startup rest api
+```
+./eth-wallet api
+```
+
+#### 1.2. call api
+
+##### get deposits
+
+- request example
+```
+curl --location --request GET 'http://127.0.0.1:8989/api/v1/deposits?address=0xc144779fa97544872879ec162fcd7367141db17f&page=1&pageSize=10' \
+--form 'address="0x62a58ec98bbc1a1b348554a19996305edc224e32"' \
+--form 'page="1"' \
+--form 'pageSize="10"'
+```
+
+- result
+```
+{
+    "Current": 1,
+    "Size": 10,
+    "Total": 2,
+    "Records": [
+        {
+            "guid": "e6277fd2-4672-11ef-a12f-0e6e6b1f0bae",
+            "block_hash": "0x2515a19d875ffdacae62d20a0f6eddfd3a35206aa07b5cfdc0c49abe7148a9cf",
+            "BlockNumber": 1964544,
+            "hash": "0x19a97821f6337789294eae9f8ce21455aa05b9e31737e3f48394413e3d0d36a1",
+            "from_address": "0x72ffaa289993bcada2e01612995e5c75dd81cdbc",
+            "to_address": "0xc144779fa97544872879ec162fcd7367141db17f",
+            "token_address": "0x0000000000000000000000000000000000000000",
+            "Fee": 176820000,
+            "Amount": 100000000000000000,
+            "status": 1,
+            "TransactionIndex": 59,
+            "Timestamp": 1721464476
+        },
+        {
+            "guid": "3835ecd8-4672-11ef-a12f-0e6e6b1f0bae",
+            "block_hash": "0xcd8835a2f98bd51f3f88be4b248e52534c251b86aaa6bf0ed2785280d67c2f81",
+            "BlockNumber": 1964522,
+            "hash": "0x6841a22be3ae7b1c138057ae522017f652f49b579b6c5a26b8727e1f1ce899c8",
+            "from_address": "0x72ffaa289993bcada2e01612995e5c75dd81cdbc",
+            "to_address": "0xc144779fa97544872879ec162fcd7367141db17f",
+            "token_address": "0x0000000000000000000000000000000000000000",
+            "Fee": 182301000,
+            "Amount": 10000000000000000,
+            "status": 1,
+            "TransactionIndex": 26,
+            "Timestamp": 1721464185
+        }
+    ]
+}
+```
+
+##### get withdraws
+- request example
+```
+curl --location --request GET 'http://127.0.0.1:8989/api/v1/withdrawals?address=0x62a58ec98bbc1a1b348554a19996305edc224e32&page=1&pageSize=10' \
+--form 'address="0x62a58ec98bbc1a1b348554a19996305edc224e32"' \
+--form 'page="1"' \
+--form 'pageSize="10"'
+```
+
+- result
+```
+{
+    "Current": 1,
+    "Size": 10,
+    "Total": 1,
+    "Records": [
+        {
+            "guid": "803fd471-e74a-403e-a934-1b917e801518",
+            "block_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "BlockNumber": 1,
+            "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "from_address": "0x62a58ec98bbc1a1b348554a19996305edc224e32",
+            "to_address": "0x62a58ec98bbc1a1b348554a19996305edc224e32",
+            "token_address": "0x62a58ec98bbc1a1b348554a19996305edc224e32",
+            "Fee": 1,
+            "Amount": 1000000000000000000,
+            "status": 0,
+            "TransactionIndex": 1,
+            "tx_sign_hex": "",
+            "Timestamp": 1721466415
+        }
+    ]
+}
+```
+
+##### submit withdraws
+- request example
+```
+curl --location --request POST 'http://127.0.0.1:8989/api/v1/submit/withdrawals?fromAddress=0x62a58ec98bbc1a1b348554a19996305edc224e32&toAddress=0x62a58ec98bbc1a1b348554a19996305edc224e32&tokenAddress=0x62a58ec98bbc1a1b348554a19996305edc224e32&amount=1000000000000000000'
+```
+
+- result
+```
+{
+    "code": 2000,
+    "msg": "submit transaction success"
+}
+```
+
+### 2.Rpc api
+
+#### 2.1. startup rpc api
+
+```
+./eth-wallet rpc
+```
 
 
+#### 2.2 use grpcui as tool to request rpc server
+```
+grpcui -plaintext 127.0.0.1:8089
+```
 
+#### 2.3.call rpc 
+
+- request example
+
+```
+grpcurl -plaintext -d '{
+  "requestId": "11111",
+  "chainId": "11",
+  "fromAddress": "0xc144779fa97544872879ec162fcd7367141db17f",
+  "toAddress": "0xc144779fa97544872879ec162fcd7367141db171",
+  "tokenAddress": "0x00",
+  "amount": "10000000000000000000"
+}' 127.0.0.1:8980 services.thewebthree.wallet.WalletService.submitWithdrawInfo
+```
+
+- result
+
+```
+{
+  "code": "2000",
+  "msg": "submit withdraw success",
+  "hash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}
+```
