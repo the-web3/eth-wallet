@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
@@ -312,9 +311,9 @@ func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee str
 			continue
 		}
 		var gasPrice *big.Int
-		var transactionFee *big.Int
+		var transactionFee = big.NewInt(0)
 		if (addressTo != nil && txReceipt.Status == 1) || (ccTx != nil && txReceipt.Status == 1) || (withdraw != nil && txReceipt.Status == 1) {
-			if txReceipt.Type == types.DynamicFeeTxType {
+			/*if txReceipt.Type == types.DynamicFeeTxType {
 				gasPrice = txReceipt.EffectiveGasPrice
 				baseFeeInt, _ := strconv.ParseInt(baseFee, 10, 64)
 				transactionFee = new(big.Int).Add(gasPrice, big.NewInt(baseFeeInt))
@@ -322,7 +321,9 @@ func (d *Deposit) processTransactions(txList []node.TransactionList, baseFee str
 			} else {
 				gasPrice = txReceipt.EffectiveGasPrice
 				transactionFee = new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(txReceipt.GasUsed))
-			}
+			}*/
+			gasPrice = txReceipt.EffectiveGasPrice
+			transactionFee.Mul(gasPrice, big.NewInt(int64(txReceipt.GasUsed)))
 
 			// 充值：to 是系统用户地址， from 地址是外部地址
 			if addressTo != nil && txReceipt.Status == 1 && addressFrom == nil {
