@@ -6,12 +6,11 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/the-web3/eth-wallet/flags"
 )
 
 const (
-	defaulConfirmations     = 64
+	defaultConfirmations    = 64
 	defaultDepositInterval  = 5000
 	defaultWithdrawInterval = 500
 	defaultCollectInterval  = 500
@@ -69,7 +68,7 @@ func LoadConfig(cliCtx *cli.Context) (Config, error) {
 	cfg = NewConfig(cliCtx)
 
 	if cfg.Chain.Confirmations == 0 {
-		cfg.Chain.Confirmations = defaulConfirmations
+		cfg.Chain.Confirmations = defaultConfirmations
 	}
 
 	if cfg.Chain.DepositInterval == 0 {

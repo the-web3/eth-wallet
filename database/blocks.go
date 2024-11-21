@@ -2,8 +2,9 @@ package database
 
 import (
 	"errors"
-	"gorm.io/gorm"
 	"math/big"
+
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

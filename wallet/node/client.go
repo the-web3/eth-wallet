@@ -27,6 +27,11 @@ const (
 	defaultRequestTimeout = 10 * time.Second
 )
 
+type Logs struct {
+	Logs          []types.Log
+	ToBlockHeader *types.Header
+}
+
 type TransactionList struct {
 	To   string `json:"to"`
 	Hash string `json:"hash"`
@@ -40,32 +45,34 @@ type RpcBlock struct {
 
 type EthClient interface {
 	BlockHeaderByNumber(*big.Int) (*types.Header, error)
-
 	BlockByNumber(*big.Int) (*RpcBlock, error)
-
 	LatestSafeBlockHeader() (*types.Header, error)
 	LatestFinalizedBlockHeader() (*types.Header, error)
 	BlockHeaderByHash(common.Hash) (*types.Header, error)
 	BlockHeadersByRange(*big.Int, *big.Int, uint) ([]types.Header, error)
-
 	TxByHash(common.Hash) (*types.Transaction, error)
 	TxReceiptByHash(common.Hash) (*types.Receipt, error)
-
 	StorageHash(common.Address, *big.Int) (common.Hash, error)
 	FilterLogs(filterQuery ethereum.FilterQuery, chainId uint) (Logs, error)
-
 	TxCountByAddress(common.Address) (hexutil.Uint64, error)
-
 	SendRawTransaction(rawTx string) error
-
 	SuggestGasPrice() (*big.Int, error)
 	SuggestGasTipCap() (*big.Int, error)
-
 	Close()
+}
+
+type RPC interface {
+	Close()
+	CallContext(ctx context.Context, result any, method string, args ...any) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
 type clnt struct {
 	rpc RPC
+}
+
+type rpcClient struct {
+	rpc *rpc.Client
 }
 
 func DialEthClient(ctx context.Context, rpcUrl string) (EthClient, error) {
@@ -333,11 +340,6 @@ func (c *clnt) Close() {
 	c.rpc.Close()
 }
 
-type Logs struct {
-	Logs          []types.Log
-	ToBlockHeader *types.Header
-}
-
 func (c *clnt) FilterLogs(query ethereum.FilterQuery, chainId uint) (Logs, error) {
 	arg, err := toFilterArg(query)
 	if err != nil {
@@ -371,16 +373,6 @@ func (c *clnt) FilterLogs(query ethereum.FilterQuery, chainId uint) (Logs, error
 		return Logs{}, fmt.Errorf("unable to query logs: %w", batchElems[1].Error)
 	}
 	return Logs{Logs: logs, ToBlockHeader: &header}, nil
-}
-
-type RPC interface {
-	Close()
-	CallContext(ctx context.Context, result any, method string, args ...any) error
-	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
-}
-
-type rpcClient struct {
-	rpc *rpc.Client
 }
 
 func NewRPC(client *rpc.Client) RPC {

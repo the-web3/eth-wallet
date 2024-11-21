@@ -2,11 +2,11 @@ package database
 
 import (
 	"errors"
-	"gorm.io/gorm"
 	"math/big"
 	"strings"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
