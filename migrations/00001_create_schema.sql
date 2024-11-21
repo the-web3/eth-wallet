@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS tokens (
     token_name VARCHAR NOT NULL,
     collect_amount  UINT256 NOT NULL CHECK(collect_amount>0),
     timestamp INTEGER NOT NULL CHECK(timestamp>0)
- );
+);
 CREATE INDEX IF NOT EXISTS tokens_timestamp ON tokens(timestamp);
 CREATE INDEX IF NOT EXISTS tokens_token_address ON tokens(token_address);
 
@@ -49,13 +49,13 @@ CREATE INDEX IF NOT EXISTS addresses_timestamp ON addresses(timestamp);
 
 
 CREATE TABLE IF NOT EXISTS balances (
-     guid  VARCHAR PRIMARY KEY,
-     address  VARCHAR NOT NULL,
-     address_type SMALLINT NOT NULL DEFAULT 0,
-     token_address VARCHAR NOT NULL,
-     balance  UINT256 NOT NULL CHECK(balance>=0),
-     lock_balance  UINT256 NOT NULL,
-     timestamp INTEGER NOT NULL CHECK(timestamp>0)
+    guid  VARCHAR PRIMARY KEY,
+    address  VARCHAR NOT NULL,
+    address_type SMALLINT NOT NULL DEFAULT 0,
+    token_address VARCHAR NOT NULL,
+    balance  UINT256 NOT NULL CHECK(balance>=0),
+    lock_balance  UINT256 NOT NULL,
+    timestamp INTEGER NOT NULL CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS balances_address ON balances(address);
 CREATE INDEX IF NOT EXISTS balances_timestamp ON balances(timestamp);
@@ -63,19 +63,19 @@ CREATE INDEX IF NOT EXISTS balances_timestamp ON balances(timestamp);
 
 
 CREATE TABLE IF NOT EXISTS transactions (
-     guid VARCHAR PRIMARY KEY,
-     block_hash VARCHAR NOT NULL,
-     block_number UINT256 NOT NULL CHECK(block_number>0),
-     hash VARCHAR NOT NULL,
-     from_address VARCHAR NOT NULL,
-     to_address VARCHAR NOT NULL,
-     token_address VARCHAR NOT NULL,
-     fee UINT256 NOT NULL,
-     amount UINT256 NOT NULL,
-     status SMALLINT NOT NULL DEFAULT 0,
-     transaction_index UINT256 NOT NULL,
-     tx_type SMALLINT NOT NULL DEFAULT 0,
-     timestamp INTEGER NOT NULL CHECK(timestamp>0)
+    guid VARCHAR PRIMARY KEY,
+    block_hash VARCHAR NOT NULL,
+    block_number UINT256 NOT NULL CHECK(block_number>0),
+    hash VARCHAR NOT NULL,
+    from_address VARCHAR NOT NULL,
+    to_address VARCHAR NOT NULL,
+    token_address VARCHAR NOT NULL,
+    fee UINT256 NOT NULL,
+    amount UINT256 NOT NULL,
+    status SMALLINT NOT NULL DEFAULT 0,
+    transaction_index UINT256 NOT NULL,
+    tx_type SMALLINT NOT NULL DEFAULT 0,
+    timestamp INTEGER NOT NULL CHECK(timestamp>0)
 );
 CREATE INDEX IF NOT EXISTS transactions_hash ON transactions(hash);
 CREATE INDEX IF NOT EXISTS transactions_timestamp ON transactions(timestamp);
