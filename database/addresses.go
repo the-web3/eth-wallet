@@ -2,10 +2,10 @@ package database
 
 import (
 	"errors"
-	"gorm.io/gorm"
 	"strings"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 )

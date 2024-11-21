@@ -2,10 +2,10 @@ package database
 
 import (
 	"errors"
-	"gorm.io/gorm"
 	"math/big"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	common2 "github.com/the-web3/eth-wallet/database/utils"
