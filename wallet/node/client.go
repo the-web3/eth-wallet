@@ -100,23 +100,36 @@ func DialEthClient(ctx context.Context, rpcUrl string) (EthClient, error) {
 	return &clnt{rpc: NewRPC(rpcClient)}, nil
 }
 
-func (c *clnt) BlockHeaderByHash(hash common.Hash) (*types.Header, error) {
+func (c *clnt) BlockHeaderByNumber(number *big.Int) (*types.Header, error) {
 	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
 	defer cancel()
 
 	var header *types.Header
-	err := c.rpc.CallContext(ctxwt, &header, "eth_getBlockByHash", hash, false)
+	err := c.rpc.CallContext(ctxwt, &header, "eth_getBlockByNumber", toBlockNumArg(number), false)
 	if err != nil {
+		log.Error("Call eth_getBlockByNumber method fail", "err", err)
 		return nil, err
 	} else if header == nil {
+		log.Warn("header not found")
 		return nil, ethereum.NotFound
 	}
 
-	if header.Hash() != hash {
-		return nil, errors.New("header mismatch")
-	}
-
 	return header, nil
+}
+
+func (c *clnt) BlockByNumber(number *big.Int) (*RpcBlock, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var block *RpcBlock
+	err := c.rpc.CallContext(ctxwt, &block, "eth_getBlockByNumber", toBlockNumArg(number), true)
+	if err != nil {
+		log.Error("Call eth_getBlockByNumber method fail", "err", err)
+		return nil, err
+	} else if block == nil {
+		log.Warn("header not found")
+		return nil, ethereum.NotFound
+	}
+	return block, nil
 }
 
 func (c *clnt) LatestSafeBlockHeader() (*types.Header, error) {
@@ -149,76 +162,20 @@ func (c *clnt) LatestFinalizedBlockHeader() (*types.Header, error) {
 	return header, nil
 }
 
-func (c *clnt) BlockByNumber(number *big.Int) (*RpcBlock, error) {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-	var block *RpcBlock
-	err := c.rpc.CallContext(ctxwt, &block, "eth_getBlockByNumber", toBlockNumArg(number), true)
-	if err != nil {
-		log.Error("Call eth_getBlockByNumber method fail", "err", err)
-		return nil, err
-	} else if block == nil {
-		log.Warn("header not found")
-		return nil, ethereum.NotFound
-	}
-	return block, nil
-}
-
-func (c *clnt) TxCountByAddress(address common.Address) (hexutil.Uint64, error) {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-	var nonce hexutil.Uint64
-	err := c.rpc.CallContext(ctxwt, &nonce, "eth_getTransactionCount", address, "latest")
-	if err != nil {
-		log.Error("Call eth_getTransactionCount method fail", "err", err)
-		return 0, err
-	}
-	log.Info("get nonce by address success", "nonce", nonce)
-	return nonce, err
-}
-
-func (c *clnt) SuggestGasPrice() (*big.Int, error) {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-	var hex hexutil.Big
-	if err := c.rpc.CallContext(ctxwt, &hex, "eth_gasPrice"); err != nil {
-		return nil, err
-	}
-	return (*big.Int)(&hex), nil
-}
-
-func (c *clnt) SuggestGasTipCap() (*big.Int, error) {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-	var hex hexutil.Big
-	if err := c.rpc.CallContext(ctxwt, &hex, "eth_maxPriorityFeePerGas"); err != nil {
-		return nil, err
-	}
-	return (*big.Int)(&hex), nil
-}
-
-func (c *clnt) SendRawTransaction(rawTx string) error {
-	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
-	defer cancel()
-	if err := c.rpc.CallContext(ctxwt, nil, "eth_sendRawTransaction", rawTx); err != nil {
-		return err
-	}
-	log.Info("send tx to ethereum success")
-	return nil
-}
-
-func (c *clnt) BlockHeaderByNumber(number *big.Int) (*types.Header, error) {
+func (c *clnt) BlockHeaderByHash(hash common.Hash) (*types.Header, error) {
 	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
 	defer cancel()
 
 	var header *types.Header
-	err := c.rpc.CallContext(ctxwt, &header, "eth_getBlockByNumber", toBlockNumArg(number), false)
+	err := c.rpc.CallContext(ctxwt, &header, "eth_getBlockByHash", hash, false)
 	if err != nil {
-		log.Error("Call eth_getBlockByNumber method fail", "err", err)
 		return nil, err
 	} else if header == nil {
-		log.Warn("header not found")
 		return nil, ethereum.NotFound
+	}
+
+	if header.Hash() != hash {
+		return nil, errors.New("header mismatch")
 	}
 
 	return header, nil
@@ -336,10 +293,6 @@ func (c *clnt) StorageHash(address common.Address, blockNumber *big.Int) (common
 	return proof.StorageHash, nil
 }
 
-func (c *clnt) Close() {
-	c.rpc.Close()
-}
-
 func (c *clnt) FilterLogs(query ethereum.FilterQuery, chainId uint) (Logs, error) {
 	arg, err := toFilterArg(query)
 	if err != nil {
@@ -373,6 +326,53 @@ func (c *clnt) FilterLogs(query ethereum.FilterQuery, chainId uint) (Logs, error
 		return Logs{}, fmt.Errorf("unable to query logs: %w", batchElems[1].Error)
 	}
 	return Logs{Logs: logs, ToBlockHeader: &header}, nil
+}
+
+func (c *clnt) TxCountByAddress(address common.Address) (hexutil.Uint64, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var nonce hexutil.Uint64
+	err := c.rpc.CallContext(ctxwt, &nonce, "eth_getTransactionCount", address, "latest")
+	if err != nil {
+		log.Error("Call eth_getTransactionCount method fail", "err", err)
+		return 0, err
+	}
+	log.Info("get nonce by address success", "nonce", nonce)
+	return nonce, err
+}
+
+func (c *clnt) SendRawTransaction(rawTx string) error {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	if err := c.rpc.CallContext(ctxwt, nil, "eth_sendRawTransaction", rawTx); err != nil {
+		return err
+	}
+	log.Info("send tx to ethereum success")
+	return nil
+}
+
+func (c *clnt) SuggestGasPrice() (*big.Int, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var hex hexutil.Big
+	if err := c.rpc.CallContext(ctxwt, &hex, "eth_gasPrice"); err != nil {
+		return nil, err
+	}
+	return (*big.Int)(&hex), nil
+}
+
+func (c *clnt) SuggestGasTipCap() (*big.Int, error) {
+	ctxwt, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout)
+	defer cancel()
+	var hex hexutil.Big
+	if err := c.rpc.CallContext(ctxwt, &hex, "eth_maxPriorityFeePerGas"); err != nil {
+		return nil, err
+	}
+	return (*big.Int)(&hex), nil
+}
+
+func (c *clnt) Close() {
+	c.rpc.Close()
 }
 
 func NewRPC(client *rpc.Client) RPC {
